@@ -1,7 +1,7 @@
 Weather Shield
 =======
 
-*Weather Shield (DEV-12081)*](https://www.sparkfun.com/products/12081)
+[*Weather Shield (DEV-12081)*](https://www.sparkfun.com/products/12081)
 
 Weather Shield is an Arduino shield that gathers relative humidity, barometric pressure, temperature, light intensity, as well as optional rain, wind direction, and wind speed (using optional [external weather gauges](https://www.sparkfun.com/products/8942)).
 
