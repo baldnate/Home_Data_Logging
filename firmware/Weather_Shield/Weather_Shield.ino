@@ -12,9 +12,12 @@
  a wireless transmitter (such as Electric Imp).
  
  Measurements are reported once a second but windspeed and rain gauge are tied to interrupts that are
- calcualted at each report.
+ calculated at each report.
  
  This example code assumes the GPS module is not used.
+
+ The libraries for MPL3115A2 and HTU21D can be found linked here:
+ https://learn.sparkfun.com/tutorials/weather-shield-hookup-guide/example-firmware
  
  */
 
