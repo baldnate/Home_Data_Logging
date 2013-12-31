@@ -1,19 +1,22 @@
-Weather Shield
-=======
+Home Data Logging
+=================
 
-[*Weather Shield (DEV-12081)*](https://www.sparkfun.com/products/12081)
+This is a collection of software that I am developing to do data logging around my house.  The high-level duties of this software are:
 
-Weather Shield is an Arduino shield that gathers relative humidity, barometric pressure, temperature, light intensity, as well as optional rain, wind direction, and wind speed (using optional [external weather gauges](https://www.sparkfun.com/products/8942)).
+* collect weather observations from an Arduino based weather station
+* collect indoor temperature readings from Arduino based sensor nodes
+* publish the weather data to Weather Underground
+* present non-weather data on web pages
 
-Weather Shield is an open source hardware project.
 
 Repository Contents
 ------------------
 
-* **/Firmware** - Example Arduino sketch to demonstrate how to read from the various sensors.
+* **/Documentation** - Detailed design documents
+* **/Firmware** - Firmware source for the Arduino nodes in this system
 
 
 License Information
 -------------------
 
-Original firmware design released under [Creative Commons Share-alike 3.0](http://creativecommons.org/licenses/by-sa/3.0/).
+See individual source files for detailed license info.

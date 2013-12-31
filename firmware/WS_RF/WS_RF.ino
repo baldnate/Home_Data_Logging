@@ -1,100 +1,96 @@
 /* 
- Weather Shield Example
- By: Nathan Seidle
- SparkFun Electronics
- Date: November 16th, 2013
- License: This code is public domain but you buy me a beer if you use this and we meet someday (Beerware license).
- 
- Much of this is based on Mike Grusin's USB Weather Board code: https://www.sparkfun.com/products/10586
- 
- This code reads all the various sensors (wind speed, direction, rain gauge, humidty, pressure, light, batt_lvl)
- and reports it over the serial comm port. This can be easily routed to an datalogger (such as OpenLog) or
- a wireless transmitter (such as Electric Imp).
- 
- Measurements are reported once a second but windspeed and rain gauge are tied to interrupts that are
- calcualted at each report.
- 
- This example code assumes the GPS module is not used.
- 
- */
+  Weather Shield & RF Transmitter Firmware
 
-#include <Wire.h> //I2C needed for sensors
-#include "MPL3115A2.h" //Pressure sensor
-#include "HTU21D.h" //Humidity sensor
-#include <VirtualWire.h>
+  By: Bald Nate
 
-MPL3115A2 myPressure; //Create an instance of the pressure sensor
-HTU21D myHumidity; //Create an instance of the humidity sensor
+  Based off of Nathan Seidle's Weather Shield example firmware, which was based off of Mike Grusin's USB Weather Board code.
 
-//Hardware pin definitions
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-// digital I/O pins
+  This firmware collects data from a Sparkfun Weather Shield and sends it over an RF Transmitter.  It does not support the GPS
+  portion of the shield, however.
+*/
+
+/*
+  To build this sketch, you will need some external libraries.
+
+  VirtualWire: http://www.airspayce.com/mikem/arduino/VirtualWire/
+  HTU21D and MPL3115A2: https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
+*/
+
+/*
+  TODOS
+  -----
+  * A lot of the wind code looks suspicious.  I am probably going to move most of it out of the firmware.
+  * I've tried to eliminate all the dead code in here, but I know there is still some left.
+  * The rain code looks a little dodgy as well.  Same as wind: a lot of it will move out of the firmware.
+  * ... and some style work, just enough to get it to where it doesn't surprise me after putting it down for a few months.
+*/
+
+#include <Wire.h>        // For general I2C
+#include "MPL3115A2.h"   // For pressure sensor
+#include "HTU21D.h"      // For humidity sensor
+#include <VirtualWire.h> // For RF transmitter
+
+MPL3115A2 myPressure;
+HTU21D myHumidity;
+
+// Digital I/O pins
 const byte WSPEED = 3;
 const byte RAIN = 2;
 const byte STAT1 = 7;
 const byte STAT2 = 8;
 const byte RFOUT = 4;
 
-// analog I/O pins
+// Analog I/O pins
 const byte REFERENCE_3V3 = A3;
 const byte LIGHT = A1;
 const byte BATT = A2;
 const byte WDIR = A0;
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-//Global Variables
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-long lastSecond; //The millis counter to see when a second rolls by
-byte seconds; //When it hits 60, increase the current minute
-byte seconds_2m; //Keeps track of the "wind speed/dir avg" over last 2 minutes array of data
-byte minutes; //Keeps track of where we are in various arrays of data
-byte minutes_10m; //Keeps track of where we are in wind gust/dir over last 10 minutes array of data
+// Global Variables
+long lastSecond;  // The millis counter to see when a second rolls by
+byte seconds;     // When it hits 60, increase the current minute
+byte seconds_2m;  // Keeps track of the "wind speed/dir avg" over last 2 minutes array of data
+byte minutes;     // Keeps track of where we are in various arrays of data
+byte minutes_10m; // Keeps track of where we are in wind gust/dir over last 10 minutes array of data
 
 long lastWindCheck = 0;
 volatile long lastWindIRQ = 0;
 volatile byte windClicks = 0;
 
-//We need to keep track of the following variables:
-//Wind speed/dir each update (no storage)
-//Wind gust/dir over the day (no storage)
-//Wind speed/dir, avg over 2 minutes (store 1 per second)
-//Wind gust/dir over last 10 minutes (store 1 per minute)
-//Rain over the past hour (store 1 per minute)
-//Total rain over date (store one per day)
-
+// We need to keep track of the following variables:
+// Wind speed/dir each update (no storage)
+// Wind gust/dir over the day (no storage)
+// Wind speed/dir, avg over 2 minutes (store 1 per second)
+// Wind gust/dir over last 10 minutes (store 1 per minute)
+// Rain over the past hour (store 1 per minute)
+// Total rain over date (store one per day)
 byte windspdavg[120]; //120 bytes to keep track of 2 minute average
 int winddiravg[120]; //120 ints to keep track of 2 minute average
 float windgust_10m[10]; //10 floats to keep track of 10 minute max
 int windgustdirection_10m[10]; //10 ints to keep track of 10 minute max
 volatile float rainHour[60]; //60 floating numbers to keep track of 60 minutes of rain
 
-//These are all the weather values that wunderground expects:
-int winddir = 0; // [0-360 instantaneous wind direction]
-float windspeedmph = 0; // [mph instantaneous wind speed]
-float windgustmph = 0; // [mph current wind gust, using software specific time period]
-int windgustdir = 0; // [0-360 using software specific time period]
-float windspdmph_avg2m = 0; // [mph 2 minute average wind speed mph]
-int winddir_avg2m = 0; // [0-360 2 minute average wind direction]
-float windgustmph_10m = 0; // [mph past 10 minutes wind gust mph ]
-int windgustdir_10m = 0; // [0-360 past 10 minutes wind gust direction]
-float humidity = 0; // [%]
-float tempf = 0; // [temperature F]
-float rainin = 0; // [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
+// These are all the weather values that wunderground expects:
+int winddir = 0;                // [0-360 instantaneous wind direction]
+float windspeedmph = 0;         // [mph instantaneous wind speed]
+float windgustmph = 0;          // [mph current wind gust, using software specific time period]
+int windgustdir = 0;            // [0-360 using software specific time period]
+float windspdmph_avg2m = 0;     // [mph 2 minute average wind speed mph]
+int winddir_avg2m = 0;          // [0-360 2 minute average wind direction]
+float windgustmph_10m = 0;      // [mph past 10 minutes wind gust mph ]
+int windgustdir_10m = 0;        // [0-360 past 10 minutes wind gust direction]
+float humidity = 0;             // [%]
+float tempf = 0;                // [temperature F]
+float rainin = 0;               // [rain inches over the past hour)] -- the accumulated rainfall in the past 60 min
 volatile float dailyrainin = 0; // [rain inches so far today in local time]
-//float baromin = 30.03;// [barom in] - It's hard to calculate baromin locally, do this in the agent
 float pressure = 0;
-//float dewptf; // [dewpoint F] - It's hard to calculate dewpoint locally, do this in the agent
 
-float batt_lvl = 11.8; //[analog value from 0 to 1023]
-float light_lvl = 455; //[analog value from 0 to 1023]
+float batt_lvl = 11.8; // [analog value from 0 to 1023]
+float light_lvl = 455; // [analog value from 0 to 1023]
 
 // volatiles are subject to modification by IRQs
 volatile unsigned long raintime, rainlast, raininterval, rain;
 
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
-
-//Interrupt routines (these are called by the hardware interrupts, not by the main code)
-//-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 void rainIRQ()
 // Count rain gauge bucket tips as they occur
 // Activated by the magnet and reed switch in the rain gauge, attached to input D2
@@ -102,10 +98,10 @@ void rainIRQ()
   raintime = millis(); // grab current time
   raininterval = raintime - rainlast; // calculate interval between this and last event
 
-    if (raininterval > 10) // ignore switch-bounce glitches less than 10mS after initial edge
+  if (raininterval > 10) // ignore switch-bounce glitches less than 10mS after initial edge
   {
-    dailyrainin += 0.011; //Each dump is 0.011" of water
-    rainHour[minutes] += 0.011; //Increase this minute's amount of rain
+    dailyrainin += 0.011;       // Each dump is 0.011" of water
+    rainHour[minutes] += 0.011; // Increase this minute's amount of rain
 
     rainlast = raintime; // set up for next event
   }
@@ -116,8 +112,8 @@ void wspeedIRQ()
 {
   if (millis() - lastWindIRQ > 10) // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
   {
-    lastWindIRQ = millis(); //Grab the current time
-    windClicks++; //There is 1.492MPH for each click per second.
+    lastWindIRQ = millis(); // Grab the current time
+    windClicks++; // There is 1.492MPH for each click per second.
   }
 }
 
@@ -125,7 +121,6 @@ void wspeedIRQ()
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("Weather Shield Example");
 
   // Initialise the IO and ISR
   vw_set_ptt_inverted(true); // Required for DR3100
@@ -136,7 +131,7 @@ void setup()
   pinMode(STAT2, OUTPUT); //Status LED Green
   
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
-  pinMode(RAIN, INPUT_PULLUP); // input from wind meters rain gauge sensor
+  pinMode(RAIN, INPUT_PULLUP);   // input from wind meters rain gauge sensor
   
   pinMode(REFERENCE_3V3, INPUT);
   pinMode(LIGHT, INPUT);
@@ -159,9 +154,6 @@ void setup()
 
   // turn on interrupts
   interrupts();
-
-  Serial.println("Weather Shield online!");
-
 }
 
 void loop()
@@ -218,41 +210,38 @@ void loop()
   delay(100);
 }
 
-//Calculates each of the variables that wunderground is expecting
+// Calculates each of the variables that wunderground is expecting
 void calcWeather()
 {
-  //Calc winddir
   winddir = get_wind_direction();
-
-  //Calc windspeed
   windspeedmph = get_wind_speed();
 
-  //Calc windgustmph
-  //Calc windgustdir
-  //Report the largest windgust today
+  // Calc windgustmph
+  // Calc windgustdir
+  // Report the largest windgust today
   windgustmph = 0;
   windgustdir = 0;
 
-  //Calc windspdmph_avg2m
+  // Calc windspdmph_avg2m
   float temp = 0;
   for(int i = 0 ; i < 120 ; i++)
     temp += windspdavg[i];
   temp /= 120.0;
   windspdmph_avg2m = temp;
 
-  //Calc winddir_avg2m
-  temp = 0; //Can't use winddir_avg2m because it's an int
+  // Calc winddir_avg2m
+  temp = 0; // Can't use winddir_avg2m because it's an int
   for(int i = 0 ; i < 120 ; i++)
     temp += winddiravg[i];
   temp /= 120;
   winddir_avg2m = temp;
 
-  //Calc windgustmph_10m
-  //Calc windgustdir_10m
-  //Find the largest windgust in the last 10 minutes
+  // Calc windgustmph_10m
+  // Calc windgustdir_10m
+  // Find the largest windgust in the last 10 minutes
   windgustmph_10m = 0;
   windgustdir_10m = 0;
-  //Step through the 10 minutes  
+  // Step through the 10 minutes
   for(int i = 0; i < 10 ; i++)
   {
     if(windgust_10m[i] > windgustmph_10m)
@@ -262,86 +251,64 @@ void calcWeather()
     }
   }
 
-  //Calc humidity
   humidity = myHumidity.readHumidity();
-  //float temp_h = myHumidity.readTemperature();
-  //Serial.print(" TempH:");
-  //Serial.print(temp_h, 2);
-
-  //Calc tempf from pressure sensor
   tempf = myPressure.readTempF();
-  //Serial.print(" TempP:");
-  //Serial.print(tempf, 2);
+  pressure = myPressure.readPressure();
+  light_lvl = get_light_level();
+  batt_lvl = get_battery_level();
 
-  //Total rainfall for the day is calculated within the interrupt
-  //Calculate amount of rainfall for the last 60 minutes
-  rainin = 0;  
+  rainin = 0;
   for(int i = 0 ; i < 60 ; i++)
     rainin += rainHour[i];
-
-  //Calc pressure
-  pressure = myPressure.readPressure();
-
-  //Calc dewptf
-
-  //Calc light level
-  light_lvl = get_light_level();
-
-  //Calc battery level
-  batt_lvl = get_battery_level();
 }
 
-//Returns the voltage of the light sensor based on the 3.3V rail
-//This allows us to ignore what VCC might be (an Arduino plugged into USB has VCC of 4.5 to 5.2V)
+// Returns the voltage of the light sensor based on the 3.3V rail
+// This allows us to ignore what VCC might be (an Arduino plugged into USB has VCC of 4.5 to 5.2V)
 float get_light_level()
 {
   float operatingVoltage = analogRead(REFERENCE_3V3);
 
   float lightSensor = analogRead(LIGHT);
   
-  operatingVoltage = 3.3 / operatingVoltage; //The reference voltage is 3.3V
+  operatingVoltage = 3.3 / operatingVoltage; // The reference voltage is 3.3V
   
   lightSensor = operatingVoltage * lightSensor;
   
   return(lightSensor);
 }
 
-//Returns the voltage of the raw pin based on the 3.3V rail
-//This allows us to ignore what VCC might be (an Arduino plugged into USB has VCC of 4.5 to 5.2V)
-//Battery level is connected to the RAW pin on Arduino and is fed through two 5% resistors:
-//3.9K on the high side (R1), and 1K on the low side (R2)
+// Returns the voltage of the raw pin based on the 3.3V rail
+// This allows us to ignore what VCC might be (an Arduino plugged into USB has VCC of 4.5 to 5.2V)
+// Battery level is connected to the RAW pin on Arduino and is fed through two 5% resistors:
+// 3.9K on the high side (R1), and 1K on the low side (R2)
 float get_battery_level()
 {
   float operatingVoltage = analogRead(REFERENCE_3V3);
 
   float rawVoltage = analogRead(BATT);
   
-  operatingVoltage = 3.30 / operatingVoltage; //The reference voltage is 3.3V
+  operatingVoltage = 3.30 / operatingVoltage; // The reference voltage is 3.3V
   
-  rawVoltage = operatingVoltage * rawVoltage; //Convert the 0 to 1023 int to actual voltage on BATT pin
+  rawVoltage = operatingVoltage * rawVoltage; // Convert the 0 to 1023 int to actual voltage on BATT pin
   
-  rawVoltage *= 4.90; //(3.9k+1k)/1k - multiple BATT voltage by the voltage divider to get actual system voltage
+  rawVoltage *= 4.90; // (3.9k+1k)/1k - multiply BATT voltage by the voltage divider to get actual system voltage
   
   return(rawVoltage);
 }
 
-//Returns the instataneous wind speed
+// Returns the instantaneous wind speed
 float get_wind_speed()
 {
-  float deltaTime = millis() - lastWindCheck; //750ms
+  float deltaTime = millis() - lastWindCheck; // 750ms
 
-  deltaTime /= 1000.0; //Covert to seconds
+  deltaTime /= 1000.0; // Covert to seconds
 
-  float windSpeed = (float)windClicks / deltaTime; //3 / 0.750s = 4
+  float windSpeed = (float)windClicks / deltaTime; // 3 / 0.750s = 4
 
-  windClicks = 0; //Reset and start watching for new wind
+  windClicks = 0; // Reset and start watching for new wind
   lastWindCheck = millis();
 
-  windSpeed *= 1.492; //4 * 1.492 = 5.968MPH
-
-  /* Serial.println();
-   Serial.print("Windspeed:");
-   Serial.println(windSpeed);*/
+  windSpeed *= 1.492; // 4 * 1.492 = 5.968MPH
 
   return(windSpeed);
 }
@@ -376,12 +343,9 @@ int get_wind_direction()
   return (-1); // error, disconnected?
 }
 
-
-//Prints the various variables directly to the port
-//I don't like the way this function is written but Arduino doesn't support floats under sprintf
 void printWeather()
 {
-  calcWeather(); //Go calc all the various sensors
+  calcWeather();
 
   Serial.println();
   Serial.print("$,winddir=");
@@ -417,6 +381,7 @@ void printWeather()
   Serial.print(",");
   Serial.println("#");
 
+  // TODO: Create RF message format, do that instead of both the serial prints and the RF test data.
   char *msg = "1234567890\n";
   vw_send((uint8_t *)msg, strlen(msg));
   vw_wait_tx(); // Wait until the whole message is gone
