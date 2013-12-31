@@ -1,19 +1,21 @@
 /* 
-  Weather Shield & RF Transmitter Firmware
+  wx.ino - firmware for wireless weather shield node
 
-  By: Bald Nate
+  by Bald Nate
 
   Based off of Nathan Seidle's Weather Shield example firmware, which was based off of Mike Grusin's USB Weather Board code.
 
   This firmware collects data from a Sparkfun Weather Shield and sends it over an RF Transmitter.  It does not support the GPS
-  portion of the shield, however.
-*/
+  portion of the shield.
 
-/*
-  To build this sketch, you will need some external libraries.
+  Hardware needed:
+  Weather Shield - https://www.sparkfun.com/products/12081
+  434MHz RF Transmitter - https://www.sparkfun.com/products/10534
+  An Arduino (I used an Uno)
 
-  VirtualWire: http://www.airspayce.com/mikem/arduino/VirtualWire/
-  HTU21D and MPL3115A2: https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
+  Libraries needed:
+  VirtualWire - http://www.airspayce.com/mikem/arduino/VirtualWire/
+  HTU21D and MPL3115A2 - https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
 */
 
 /*
@@ -23,6 +25,7 @@
   * I've tried to eliminate all the dead code in here, but I know there is still some left.
   * The rain code looks a little dodgy as well.  Same as wind: a lot of it will move out of the firmware.
   * ... and some style work, just enough to get it to where it doesn't surprise me after putting it down for a few months.
+  * oh, and the data should actually be sent through the RF link rather than serial.  And the protocol needs to be defined.
 */
 
 #include <Wire.h>        // For general I2C
