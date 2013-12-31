@@ -1,12 +1,9 @@
 /*
-  wx.ino - firmware for wireless weather shield node
+  ear.ino - firmware for wireless listener and temp node
 
   by Bald Nate
 
-  Based off of Nathan Seidle's Weather Shield example firmware, which was based off of Mike Grusin's USB Weather Board code.
-
-  This firmware collects data from a Sparkfun Weather Shield and sends it over an RF Transmitter.  It does not support the GPS
-  portion of the shield.
+  tmp102 code based on info from http://bildr.org/2011/01/tmp102-arduino/
 
   Hardware needed:
   434MHz RF Receiver - https://www.sparkfun.com/products/10532
