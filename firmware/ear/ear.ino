@@ -32,7 +32,7 @@ float getTempF()
   byte MSB = Wire.read();
   byte LSB = Wire.read();
   int TemperatureSum = ((MSB << 8) | LSB) >> 4;
-  return (1.8 * TemperatureSum*0.0625) + 32;
+  return (0.1125 * TemperatureSum) + 32;
 }
 
 long lastPost;  // milli counter of last time we posted an update
@@ -72,7 +72,7 @@ void loop()
     posted = true;
   }
 
-  if (posted || (iterTime > lastPost + 1000))
+  if (posted || (iterTime > lastPost + 30000))
   {
     float fahrenheit = getTempF();
     Serial.print("earF:");
@@ -82,6 +82,8 @@ void loop()
 
   if (posted)
   {
+    Serial.print("uptime:");
+    Serial.println(iterTime/1000);
     lastPost = iterTime;
   }
 }

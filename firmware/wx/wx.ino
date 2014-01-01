@@ -385,7 +385,7 @@ void printWeather()
   Serial.println("#");
 
   // TODO: Create RF message format, do that instead of both the serial prints and the RF test data.
-  char *msg = "1234567890\n";
+  char *msg = "wx12345678901234567890\n";
   vw_send((uint8_t *)msg, strlen(msg));
   vw_wait_tx(); // Wait until the whole message is gone
 }
