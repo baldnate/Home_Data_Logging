@@ -39,7 +39,12 @@ long lastPost;  // milli counter of last time we posted an update
 
 void setup()
 {
-  Serial.begin(9600);
+  // Wait for a bit before proceeding...
+  delay(2000);
+
+  Serial.begin(115200);
+  Serial.println("EAR INIT START");
+
   Wire.begin();
   vw_set_ptt_inverted(true); // Required for DR3100
   vw_setup(2000);	           // Bits per sec
@@ -48,7 +53,17 @@ void setup()
 
   lastPost = millis();
 
-  Serial.println("ear online");
+  Serial.println("EAR INIT COMPLETE");
+}
+
+void emitEarTempF()
+{
+  float fahrenheit = getTempF();
+  Serial.println("BEGIN");
+  Serial.println("NODE:EAR");
+  Serial.print("TEMPF:");
+  Serial.println(fahrenheit);
+  Serial.println("END");
 }
 
 void loop()
@@ -56,27 +71,52 @@ void loop()
   bool posted = false;
   long iterTime = millis();
 
-  uint8_t buf[VW_MAX_MESSAGE_LEN];
-  uint8_t buflen = VW_MAX_MESSAGE_LEN;
+  uint8_t msg[VW_MAX_MESSAGE_LEN];
+  uint8_t msglen = VW_MAX_MESSAGE_LEN;
 
-  if (vw_get_message(buf, &buflen)) // Non-blocking
+  if (vw_get_message(msg, &msglen)) // Non-blocking
   {
-    int i;
-    Serial.print("Got: ");
-    for (i = 0; i < buflen; i++)
+    /*
+      wx message format
+      Header: 
+        magic(byte): 0xCC
+        sender(byte): 0x01 (for the wx node)
+      Data
+        rainticks(uint): Running count of rain cup tips.
+        humidity(float) : Percent humidity.
+        pressure(float): Pressure in Pascals.
+        tempf(float) : Temperature in degF.
+        windspeed(float): Wind speed in MPH.
+        winddir(float): Wind direction in degrees azimuth.
+
+      Total packet size: 24 bytes
+    */
+
+    if (msg[0] == 0xcc && msg[1] == 0x01)
     {
-      Serial.print(buf[i]);
-      Serial.print(" ");
+      Serial.println("BEGIN");
+      Serial.println("NODE:WX");
+      Serial.print("RAINTICKS:");
+      Serial.println(*(unsigned int*) (msg +  2));
+      Serial.print("HUMIDITY:");
+      Serial.println(*(float*)(msg +  4));
+      Serial.print("PRESSURE:");
+      Serial.println(*(float*)(msg +  8));
+      Serial.print("TEMPF:");
+      Serial.println(*(float*)(msg + 12));
+      Serial.print("WINDSPEED:");
+      Serial.println(*(float*)(msg + 16));
+      Serial.print("WINDDIR:");
+      Serial.println(*(float*)(msg + 20));
+      Serial.println("END");
     }
-    Serial.println("");
+
     posted = true;
   }
 
   if (posted || (iterTime > lastPost + 30000))
   {
-    float fahrenheit = getTempF();
-    Serial.print("earF:");
-    Serial.println(fahrenheit);
+    emitEarTempF();
     posted = true;
   }
 
