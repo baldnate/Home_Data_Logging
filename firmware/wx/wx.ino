@@ -34,21 +34,27 @@
 #include "HTU21D.h"      // For humidity sensor
 #include <VirtualWire.h> // For RF transmitter
 
+// Pin constants notes:
+// * I include pin constants I don't use so as to document what pins are in use
+//   (or could be in use) on the Sparkfun Weather Shield.
+// * Sorted by pin number.
 
 // Digital I/O pins
-const byte WSPEED = 3;
-const byte RAIN = 2;
-const byte STAT1 = 7;
-const byte STAT2 = 8;
-const byte RFOUT = 4;
 
+const byte RAIN       = 2;
+const byte WSPEED     = 3;
+const byte GPS_TX     = 4;
+const byte GPS_RX     = 5;
+const byte GPS_PWRCTL = 6; // Pulling this pin low puts GPS to sleep but maintains RTC and RAM
+const byte STAT1      = 7; // Status LED
+const byte STAT2      = 8; // Status LED
+const byte RF_PTT     = 9; // RF push-to-talk pin (i.e.: data out)
 
 // Analog I/O pins
-const byte REFERENCE_3V3 = A3;
-const byte LIGHT = A1;
-const byte BATT = A2;
-const byte WDIR = A0;
-
+const byte WDIR    = A0;
+const byte LIGHT   = A1;
+const byte BATT    = A2;
+const byte REF_3V3 = A3;
 
 // Globals
 long lastSecond;  // The millis counter to see when a second rolls by
@@ -100,13 +106,13 @@ void setup()
   // Initialise the IO and ISR
   vw_set_ptt_inverted(true); // Required for DR3100
   vw_setup(2000);	     // Bits per sec
-  vw_set_tx_pin(RFOUT);
+  vw_set_tx_pin(RF_PTT);
 
   
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
   pinMode(RAIN, INPUT_PULLUP);   // input from wind meters rain gauge sensor
   
-  pinMode(REFERENCE_3V3, INPUT);
+  pinMode(REF_3V3, INPUT);
   pinMode(LIGHT, INPUT);
 
   //Configure the pressure sensor
