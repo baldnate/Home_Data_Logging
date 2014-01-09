@@ -15,39 +15,243 @@
 
   Libraries needed:
   VirtualWire - http://www.airspayce.com/mikem/arduino/VirtualWire/
-  HTU21D and MPL3115A2 - https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
+  HTU21D - https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
 */
 
 /*
   TODOS
   -----
-  * Barometer needs work
+  * Barometer conversion needs work
   * A lot of the wind code looks suspicious.  I am probably going to move most of it out of the firmware.
   * I've tried to eliminate all the dead code in here, but I know there is still some left.
   * The rain code looks a little dodgy as well.  Same as wind: a lot of it will move out of the firmware.
   * ... and some style work, just enough to get it to where it doesn't surprise me after putting it down for a few months.
-  * oh, and the data should actually be sent through the RF link rather than serial.  And the protocol needs to be defined.
+  * Humidity set resolution?
+  * Pull Simple_MPL3115A2 out into a library?
+  * Simple_MPL needs refactoring... it moved from being standby OST to auto-measuring with polling for DR.  I could
+    simplify it even more with that in mind.
+  * ... but at least it ran overnight with losing its mind, like the old code would.
 */
 
 #include <Wire.h>        // For general I2C
-#include "MPL3115A2.h"   // For pressure sensor
 #include "HTU21D.h"      // For humidity sensor
 #include <VirtualWire.h> // For RF transmitter
 
-// Pin constants notes:
-// * I include pin constants I don't use so as to document what pins are in use
-//   (or could be in use) on the Sparkfun Weather Shield.
-// * Sorted by pin number.
+/***********************************************************
+*                     Simple_MPL3115A2                     *
+************************************************************
+* Simplified and fixed version of MPL3115A2 from SparkFun. *
+* - Simplified by assuming one mode of operation.          *
+* - Fixed by making it more power and bus friendly.        *
+***********************************************************/
+const int MPL3115A2_ADDRESS = 0x60;
+const int OUT_P_MSB = 0x01;
+const int CTRL_REG1 = 0x26;
+
+const byte MPL_ARMED = 1;
+const byte MPL_MEAS_READY = 2;
+
+class Simple_MPL3115A2 {
+  public:
+    Simple_MPL3115A2() {}
+    bool begin(void) {
+      Wire.begin();
+      IIC_Write(CTRL_REG1, 0x38); // barometer, cooked, 128 oversample, no reset, no OST, in standby
+      IIC_Write(0x13, 0x07); // enable events
+      IIC_Write(CTRL_REG1, 0x39); // barometer, cooked, 128 oversample, no reset, no OST, active
+      arm();
+    }
+    bool readTempAndPressure(float &rtemp, float &rpressure);
+
+  private:
+    byte state;
+    void arm();
+    void reset();
+    bool waitForMeasurementComplete();
+    byte IIC_Read(byte regAddr);
+    void IIC_Write(byte regAddr, byte value);
+};
+
+// returns false if measurement failed
+bool Simple_MPL3115A2::readTempAndPressure(float &rtemp, float &rpressure) {
+  byte rearmAttempts = 0;
+  bool abort = false;
+
+  while (!abort) {
+    switch (state) 
+    {
+      case MPL_ARMED:
+        if (waitForMeasurementComplete()) {
+          state = MPL_MEAS_READY;
+        } else {
+          if (rearmAttempts < 10) {
+            arm();
+            rearmAttempts++;
+          } else {
+            abort = true;
+          }
+        }
+        break;
+
+      case MPL_MEAS_READY:
+        // Read pressure and temp registers
+        Wire.beginTransmission(MPL3115A2_ADDRESS);
+        Wire.write(OUT_P_MSB);  // Address of data to get
+        Wire.endTransmission(false);
+        Wire.requestFrom(MPL3115A2_ADDRESS, 5); // Request 5 bytes
+        for (int waitCycles = 0; (Wire.available() < 5) && (waitCycles <= 10); ++waitCycles) {
+          Serial.print("m");
+          delay(1);
+        }
+        if (Wire.available() < 5) {
+          arm();
+          rearmAttempts++;
+          break;
+        }
+
+        byte pmsb, pcsb, plsb, tmsb, tlsb;
+        pmsb = Wire.read();
+        pcsb = Wire.read();
+        plsb = Wire.read();
+        tmsb = Wire.read();
+        tlsb = Wire.read();
+
+        arm(); // immediately re-arm
+        state = MPL_ARMED;
+
+        // Pressure comes back as a left shifted 20 bit number
+        long pressure_whole = (long)pmsb<<16 | (long)pcsb<<8 | (long)plsb;
+        pressure_whole >>= 6; //Pressure is an 18 bit number with 2 bits of decimal. Get rid of decimal portion.
+        plsb &= 0b00110000; //Bits 5/4 represent the fractional component
+        plsb >>= 4; //Get it right aligned
+        float pressure_decimal = (float)plsb/4.0; //Turn it into fraction
+        rpressure = (float)pressure_whole + pressure_decimal;
+
+        // The least significant bytes l_altitude and l_temp are 4-bit,
+        // fractional values, so you must cast the calulation in (float),
+        // shift the value over 4 spots to the right and divide by 16 (since 
+        // there are 16 values in 4-bits). 
+        float templsb = (tlsb>>4)/16.0; //temp, fraction of a degree
+        rtemp = (float)(tmsb + templsb);
+        return true;
+    }
+  }
+
+  Serial.print("f");
+  Serial.print(state);
+  rtemp = 0.0;
+  rpressure = 0.0;
+  reset();
+  return false;
+}
+
+void Simple_MPL3115A2::arm(void) {
+//  byte tempSetting = IIC_Read(CTRL_REG1); //Read current settings to be safe
+//  tempSetting |= (1<<1); //Set OST bit
+//  IIC_Write(CTRL_REG1, tempSetting);
+//  IIC_Write(CTRL_REG1, 0x3A); // barometer, cooked, 128 oversample, no reset, OST, in standby
+  state = MPL_ARMED;
+}
+
+void Simple_MPL3115A2::reset(void) {
+//  byte tempSetting = IIC_Read(CTRL_REG1); //Read current settings to be safe
+//  tempSetting |= (1<<1); //Set OST bit
+//  IIC_Write(CTRL_REG1, tempSetting);
+  IIC_Write(CTRL_REG1, 0x04); // reset
+  byte ctrl = IIC_Read(CTRL_REG1);
+  int counter = 0;
+  while ((ctrl & 4) && (counter <= 20)) {
+    counter++;
+    delay(100);
+    ctrl = IIC_Read(CTRL_REG1);
+  }
+  arm();
+}
+
+// returns true if data has arrived, false if we timed out
+bool Simple_MPL3115A2::waitForMeasurementComplete(void) {
+  // spin until OST is cleared or we get tired of waiting
+  byte ctrl = IIC_Read(0x06);
+  int counter = 0;
+  while (!(ctrl & 4) && !(ctrl & 2) && (counter <= 6)) {
+    counter++;
+    delay(550);
+    ctrl = IIC_Read(0x06);
+  }
+  return counter <= 6;
+}
+
+byte Simple_MPL3115A2::IIC_Read(byte regAddr)
+{
+  Serial.print("R:");
+  Serial.print(regAddr, HEX);
+
+  // This function reads one byte over IIC
+  Wire.beginTransmission(MPL3115A2_ADDRESS);
+  Wire.write(regAddr);  // Address of CTRL_REG1
+  byte result = Wire.endTransmission(false);
+  if (result)
+  {
+    Serial.print(" error ");
+    Serial.print(result);
+  }
+
+  Wire.requestFrom(MPL3115A2_ADDRESS, 1); // Request the data...
+
+  int counter = 0;
+  while (Wire.available() < 1)
+  {
+    delay(1);
+    if (++counter == 100)
+    {
+      break;
+    }
+  }
+
+  byte retVal = Wire.read();
+  Serial.print("=");
+  Serial.print(retVal, HEX);
+  Serial.print(" ");
+  return retVal;
+}
+
+void Simple_MPL3115A2::IIC_Write(byte regAddr, byte value)
+{
+  Serial.print("W:");
+  Serial.print(regAddr, HEX);
+  Serial.print(",");
+  Serial.print(value, HEX);
+  Serial.print(" ");
+
+  // This function writes one byto over IIC
+  Wire.beginTransmission(MPL3115A2_ADDRESS);
+  Wire.write(regAddr);
+  Wire.write(value);
+  byte result = Wire.endTransmission(true);
+  if (result)
+  {
+    Serial.print("!");
+    Serial.print(result);
+    Serial.print("!");
+  }
+}
+/**********************************************************
+*                 End of Simple_MPL3115A2                 *
+**********************************************************/
+
+
+// Pin constants note:
+// Not all pin constants are referenced in this sketch.  They are included to document 
+// what all pins could be in use on the Sparkfun Weather Shield.  Ex: GPS_TX
 
 // Digital I/O pins
-
 const byte RAIN       = 2;
 const byte WSPEED     = 3;
 const byte GPS_TX     = 4;
 const byte GPS_RX     = 5;
 const byte GPS_PWRCTL = 6; // Pulling this pin low puts GPS to sleep but maintains RTC and RAM
-const byte STAT1      = 7; // Status LED
-const byte STAT2      = 8; // Status LED
+const byte LED_BLUE   = 7;
+const byte LED_GREEN  = 8;
 const byte RF_PTT     = 9; // RF push-to-talk pin (i.e.: data out)
 
 // Analog I/O pins
@@ -59,7 +263,7 @@ const byte REF_3V3 = A3;
 // Globals
 long lastSecond;  // The millis counter to see when a second rolls by
 long lastWindCheck = 0;
-MPL3115A2 myPressure;
+Simple_MPL3115A2 myPressure;
 HTU21D myHumidity;
 
 
@@ -97,17 +301,19 @@ void setup()
   // Wait for a bit before proceeding...
   delay(2000);
 
-  pinMode(STAT1, OUTPUT); //Status LED Blue
-  pinMode(STAT2, OUTPUT); //Status LED Green
+  Serial.begin(115200);
 
-  digitalWrite(STAT1, HIGH);
-  digitalWrite(STAT2, HIGH);
+  pinMode(LED_BLUE, OUTPUT);
+  pinMode(LED_GREEN, OUTPUT);
+
+  // Both LEDs on == init in progress
+  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_GREEN, HIGH);
 
   // Initialise the IO and ISR
   vw_set_ptt_inverted(true); // Required for DR3100
   vw_setup(2000);	     // Bits per sec
   vw_set_tx_pin(RF_PTT);
-
   
   pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
   pinMode(RAIN, INPUT_PULLUP);   // input from wind meters rain gauge sensor
@@ -117,15 +323,12 @@ void setup()
 
   //Configure the pressure sensor
   myPressure.begin(); // Get sensor online
-  myPressure.setModeBarometer(); // Measure pressure in Pascals from 20 to 110 kPa
-  myPressure.setOversampleRate(7); // Set Oversample to the recommended 128
-  myPressure.enableEventFlags(); // Enable all three pressure and temp event flags 
 
   //Configure the humidity sensor
   myHumidity.begin();
 
-  digitalWrite(STAT1, LOW);
-  digitalWrite(STAT2, LOW);
+  digitalWrite(LED_BLUE, LOW);
+  digitalWrite(LED_GREEN, LOW);
 
   lastSecond = millis();
 
@@ -141,13 +344,8 @@ void loop()
 {
   if(millis() - lastSecond >= 1000)
   {
-    digitalWrite(STAT1, HIGH); //Blink stat LED
-    
     lastSecond += 1000;
-
     sendObservations();
-
-    digitalWrite(STAT1, LOW); //Turn off stat LED
   }
 
   delay(100);
@@ -200,7 +398,17 @@ unsigned int getWindDirection()
   return (-1); // error, disconnected?
 }
 
-void sendObservations()
+float cToF(float c)
+{
+  return (c * 9.0)/ 5.0 + 32.0;
+}
+
+bool isHumidityBogus(float x)
+{
+  return x == 998.0 || x == 999.0 ;
+}
+
+bool observeConditions(uint8_t msg[24])
 {
   /*
     Message format as follows.
@@ -218,22 +426,55 @@ void sendObservations()
     Total packet size: 24 bytes
   */
 
-  const byte msgLength = 24;
-  uint8_t msg[msgLength];
+  bool success = true;
+
+  digitalWrite(LED_BLUE, HIGH);
+
+  float tempC = 0.0;
+  float pressure = 0.0;
+  if (myPressure.readTempAndPressure(tempC, pressure))
+  {
+    float tempF = cToF(tempC);
+    Serial.print("pressure: ");
+    Serial.print(pressure);
+    Serial.print("\ttempF: ");
+    Serial.println(tempF);
+  }
+  else
+  {
+    Serial.println("pressure and temp acq failed\t");
+  }
+
+  float humidity = myHumidity.readHumidity();
+  Serial.print("\thumidity: ");
+  Serial.println(humidity);
+
 
   msg[0] = 0xcc;
   msg[1] = 0x01;
   *(unsigned int*) (msg +  2) = rainTicks;
-  *(float*)(msg +  4) = myHumidity.readHumidity();
-  *(float*)(msg +  8) = myPressure.readPressure();
-  *(float*)(msg + 12) = myPressure.readTempF();;
+  *(float*)(msg +  4) = humidity;
+  *(float*)(msg +  8) = pressure;
+  *(float*)(msg + 12) = cToF(tempC);
   *(float*)(msg + 16) = getWindSpeed();
   *(float*)(msg + 20) = getWindDirection() * 1.0;
+  digitalWrite(LED_BLUE, LOW);
 
-  digitalWrite(STAT2, HIGH);
-  vw_send(msg, msgLength);
-  vw_wait_tx(); // Wait until the whole message is gone
-  digitalWrite(STAT2, LOW);
+  return success;
+}
+
+void sendObservations()
+{
+  const byte msgLength = 24;
+  uint8_t msg[msgLength];
+
+  if (observeConditions(msg))
+  {
+    digitalWrite(LED_GREEN, HIGH);
+    vw_send(msg, msgLength);
+    vw_wait_tx();
+    digitalWrite(LED_GREEN, LOW);
+  }
 }
 
 
