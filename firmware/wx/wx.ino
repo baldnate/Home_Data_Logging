@@ -18,35 +18,31 @@
   HTU21D - https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
 */
 
-/*
+/*  
   TODOS
   -----
-  * Barometer conversion needs work
-  * A lot of the wind code looks suspicious.  I am probably going to move most of it out of the firmware.
-  * I've tried to eliminate all the dead code in here, but I know there is still some left.
-  * The rain code looks a little dodgy as well.  Same as wind: a lot of it will move out of the firmware.
-  * ... and some style work, just enough to get it to where it doesn't surprise me after putting it down for a few months.
-  * Humidity set resolution?
-  * Pull Simple_MPL3115A2 out into a library?
-  * Simple_MPL needs refactoring... it moved from being standby OST to auto-measuring with polling for DR.  I could
-    simplify it even more with that in mind.
-  * ... but at least it ran overnight with losing its mind, like the old code would.
+  * Barometer final conversion needs work... somewhere.
+  * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
+  * Measurement quality improvements
+    * average the two temp sensors?
+  * Create specialized averager for wind direction?
+    * when direction is not changing much, average samples to get finer granularity
+    * when direction is changing a lot, call it variable and stomp the average
+    * other stuff?
 */
 
 #include <Wire.h>        // For general I2C
 #include "HTU21D.h"      // For humidity sensor
 #include <VirtualWire.h> // For RF transmitter
 
-/***********************************************************
-*                     Simple_MPL3115A2                     *
-************************************************************
-* Simplified and fixed version of MPL3115A2 from SparkFun. *
-* - Simplified by assuming one mode of operation.          *
-* - Fixed by making it more power and bus friendly.        *
-***********************************************************/
+/*******************
+* Simple_MPL3115A2 *
+*******************/
 const int MPL3115A2_ADDRESS = 0x60;
-const int OUT_P_MSB = 0x01;
-const int CTRL_REG1 = 0x26;
+const int OUT_P_MSB         = 0x01;
+const int DR_STATUS         = 0x06;
+const int PT_DATA_CFG       = 0x13;
+const int CTRL_REG1         = 0x26;
 
 const byte MPL_ARMED = 1;
 const byte MPL_MEAS_READY = 2;
@@ -54,19 +50,14 @@ const byte MPL_MEAS_READY = 2;
 class Simple_MPL3115A2 {
   public:
     Simple_MPL3115A2() {}
-    bool begin(void) {
-      Wire.begin();
-      IIC_Write(CTRL_REG1, 0x38); // barometer, cooked, 128 oversample, no reset, no OST, in standby
-      IIC_Write(0x13, 0x07); // enable events
-      IIC_Write(CTRL_REG1, 0x39); // barometer, cooked, 128 oversample, no reset, no OST, active
-      arm();
+    bool init(void) {
+      IIC_Write(CTRL_REG1,   0x38); // barometer, cooked, 128 oversample, no reset, no OST, standby
+      IIC_Write(PT_DATA_CFG, 0x07); // enable all the event bits (data ready, temp ready, pressure ready)
+      IIC_Write(CTRL_REG1,   0x39); // barometer, cooked, 128 oversample, no reset, no OST, active
     }
     bool readTempAndPressure(float &rtemp, float &rpressure);
 
   private:
-    byte state;
-    void arm();
-    void reset();
     bool waitForMeasurementComplete();
     byte IIC_Read(byte regAddr);
     void IIC_Write(byte regAddr, byte value);
@@ -74,171 +65,113 @@ class Simple_MPL3115A2 {
 
 // returns false if measurement failed
 bool Simple_MPL3115A2::readTempAndPressure(float &rtemp, float &rpressure) {
-  byte rearmAttempts = 0;
-  bool abort = false;
+  if (!waitForMeasurementComplete()) return false;
 
-  while (!abort) {
-    switch (state) 
-    {
-      case MPL_ARMED:
-        if (waitForMeasurementComplete()) {
-          state = MPL_MEAS_READY;
-        } else {
-          if (rearmAttempts < 10) {
-            arm();
-            rearmAttempts++;
-          } else {
-            abort = true;
-          }
-        }
-        break;
+  // Read pressure and temp registers
+  Wire.beginTransmission(MPL3115A2_ADDRESS);
+  Wire.write(OUT_P_MSB);  // Address of data to get
+  Wire.endTransmission(false);
+  Wire.requestFrom(MPL3115A2_ADDRESS, 5); // Request 5 bytes
+  for (int waitCycles = 0; (Wire.available() < 5) && (waitCycles <= 10); ++waitCycles) delay(10);
+  if (Wire.available() < 5) return false;
 
-      case MPL_MEAS_READY:
-        // Read pressure and temp registers
-        Wire.beginTransmission(MPL3115A2_ADDRESS);
-        Wire.write(OUT_P_MSB);  // Address of data to get
-        Wire.endTransmission(false);
-        Wire.requestFrom(MPL3115A2_ADDRESS, 5); // Request 5 bytes
-        for (int waitCycles = 0; (Wire.available() < 5) && (waitCycles <= 10); ++waitCycles) {
-          Serial.print("m");
-          delay(1);
-        }
-        if (Wire.available() < 5) {
-          arm();
-          rearmAttempts++;
-          break;
-        }
+  byte pmsb, pcsb, plsb, tmsb, tlsb;
+  pmsb = Wire.read();
+  pcsb = Wire.read();
+  plsb = Wire.read();
+  tmsb = Wire.read();
+  tlsb = Wire.read();
 
-        byte pmsb, pcsb, plsb, tmsb, tlsb;
-        pmsb = Wire.read();
-        pcsb = Wire.read();
-        plsb = Wire.read();
-        tmsb = Wire.read();
-        tlsb = Wire.read();
+  // Pressure comes back as a left shifted 20 bit number
+  long pressure_whole = (long) pmsb << 16 | (long) pcsb << 8 | (long) plsb;
+  pressure_whole >>= 6; //Pressure is an 18 bit number with 2 bits of decimal. Get rid of decimal portion.
+  plsb &= 0b00110000; //Bits 5/4 represent the fractional component
+  plsb >>= 4; //Get it right aligned
+  float pressure_decimal = (float) plsb / 4.0; //Turn it into fraction
+  rpressure = (float) pressure_whole + pressure_decimal;
 
-        arm(); // immediately re-arm
-        state = MPL_ARMED;
-
-        // Pressure comes back as a left shifted 20 bit number
-        long pressure_whole = (long)pmsb<<16 | (long)pcsb<<8 | (long)plsb;
-        pressure_whole >>= 6; //Pressure is an 18 bit number with 2 bits of decimal. Get rid of decimal portion.
-        plsb &= 0b00110000; //Bits 5/4 represent the fractional component
-        plsb >>= 4; //Get it right aligned
-        float pressure_decimal = (float)plsb/4.0; //Turn it into fraction
-        rpressure = (float)pressure_whole + pressure_decimal;
-
-        // The least significant bytes l_altitude and l_temp are 4-bit,
-        // fractional values, so you must cast the calulation in (float),
-        // shift the value over 4 spots to the right and divide by 16 (since 
-        // there are 16 values in 4-bits). 
-        float templsb = (tlsb>>4)/16.0; //temp, fraction of a degree
-        rtemp = (float)(tmsb + templsb);
-        return true;
-    }
-  }
-
-  Serial.print("f");
-  Serial.print(state);
-  rtemp = 0.0;
-  rpressure = 0.0;
-  reset();
-  return false;
-}
-
-void Simple_MPL3115A2::arm(void) {
-//  byte tempSetting = IIC_Read(CTRL_REG1); //Read current settings to be safe
-//  tempSetting |= (1<<1); //Set OST bit
-//  IIC_Write(CTRL_REG1, tempSetting);
-//  IIC_Write(CTRL_REG1, 0x3A); // barometer, cooked, 128 oversample, no reset, OST, in standby
-  state = MPL_ARMED;
-}
-
-void Simple_MPL3115A2::reset(void) {
-//  byte tempSetting = IIC_Read(CTRL_REG1); //Read current settings to be safe
-//  tempSetting |= (1<<1); //Set OST bit
-//  IIC_Write(CTRL_REG1, tempSetting);
-  IIC_Write(CTRL_REG1, 0x04); // reset
-  byte ctrl = IIC_Read(CTRL_REG1);
-  int counter = 0;
-  while ((ctrl & 4) && (counter <= 20)) {
-    counter++;
-    delay(100);
-    ctrl = IIC_Read(CTRL_REG1);
-  }
-  arm();
+  // The least significant bytes l_altitude and l_temp are 4-bit,
+  // fractional values, so you must cast the calulation in (float),
+  // shift the value over 4 spots to the right and divide by 16 (since 
+  // there are 16 values in 4-bits). 
+  float templsb = (tlsb >> 4) / 16.0; //temp, fraction of a degree
+  rtemp = (float)(tmsb + templsb);
+  return true;
 }
 
 // returns true if data has arrived, false if we timed out
 bool Simple_MPL3115A2::waitForMeasurementComplete(void) {
-  // spin until OST is cleared or we get tired of waiting
-  byte ctrl = IIC_Read(0x06);
+  // spin until temp and pressure flags are both set
+  byte ctrl = IIC_Read(DR_STATUS);
   int counter = 0;
   while (!(ctrl & 4) && !(ctrl & 2) && (counter <= 6)) {
     counter++;
-    delay(550);
-    ctrl = IIC_Read(0x06);
+    delay(100);
+    ctrl = IIC_Read(DR_STATUS);
   }
   return counter <= 6;
 }
 
-byte Simple_MPL3115A2::IIC_Read(byte regAddr)
-{
-  Serial.print("R:");
-  Serial.print(regAddr, HEX);
-
+byte Simple_MPL3115A2::IIC_Read(byte regAddr) {
   // This function reads one byte over IIC
   Wire.beginTransmission(MPL3115A2_ADDRESS);
-  Wire.write(regAddr);  // Address of CTRL_REG1
+  Wire.write(regAddr);
   byte result = Wire.endTransmission(false);
-  if (result)
-  {
-    Serial.print(" error ");
-    Serial.print(result);
-  }
 
   Wire.requestFrom(MPL3115A2_ADDRESS, 1); // Request the data...
 
   int counter = 0;
-  while (Wire.available() < 1)
-  {
+  while (Wire.available() < 1) {
     delay(1);
-    if (++counter == 100)
-    {
-      break;
-    }
+    if (++counter == 100) break;
   }
 
-  byte retVal = Wire.read();
-  Serial.print("=");
-  Serial.print(retVal, HEX);
-  Serial.print(" ");
-  return retVal;
+  return Wire.read();
 }
 
-void Simple_MPL3115A2::IIC_Write(byte regAddr, byte value)
-{
-  Serial.print("W:");
-  Serial.print(regAddr, HEX);
-  Serial.print(",");
-  Serial.print(value, HEX);
-  Serial.print(" ");
-
+void Simple_MPL3115A2::IIC_Write(byte regAddr, byte value) {
   // This function writes one byto over IIC
   Wire.beginTransmission(MPL3115A2_ADDRESS);
   Wire.write(regAddr);
   Wire.write(value);
   byte result = Wire.endTransmission(true);
-  if (result)
-  {
-    Serial.print("!");
-    Serial.print(result);
-    Serial.print("!");
-  }
 }
 /**********************************************************
 *                 End of Simple_MPL3115A2                 *
 **********************************************************/
 
+const byte AUTO_AVERAGER_SAMPLE_LENGTH = 15;
+class AutoAverager {
+  public:
+    AutoAverager() {
+      clear();
+    }
+    void clear(void) {
+      index = 0;
+      primed = false;
+      for (byte i = 0; i < AUTO_AVERAGER_SAMPLE_LENGTH; ++i) samples[i] = 0.0;
+    }
+    float latch(float x) {
+      if (!primed) {
+        for (byte i = 0; i < AUTO_AVERAGER_SAMPLE_LENGTH; ++i) samples[i] = x;
+        primed = true;
+        return x;  
+      } else {
+        samples[index] = x;
+        index = (index + 1) % AUTO_AVERAGER_SAMPLE_LENGTH;
+        return getAverage();
+      }
+    }
+    float getAverage(void) {
+      float sum = 0.0;
+      for (byte i = 0; i < AUTO_AVERAGER_SAMPLE_LENGTH; ++i) sum += samples[i];
+      return sum / (AUTO_AVERAGER_SAMPLE_LENGTH * 1.0);
+    }
+  private:
+    float samples[AUTO_AVERAGER_SAMPLE_LENGTH];
+    byte index;
+    bool primed;
+};
 
 // Pin constants note:
 // Not all pin constants are referenced in this sketch.  They are included to document 
@@ -261,100 +194,76 @@ const byte BATT    = A2;
 const byte REF_3V3 = A3;
 
 // Globals
-long lastSecond;  // The millis counter to see when a second rolls by
-long lastWindCheck = 0;
+unsigned long lastSecond;  // The millis counter to see when a second rolls by
+unsigned long lastWindCheck = 0;
 Simple_MPL3115A2 myPressure;
 HTU21D myHumidity;
+AutoAverager runningPressure;
+AutoAverager runningTemperature;
+AutoAverager runningHumidity;
 
-
-volatile unsigned long rainLast, rainTicks;
-void rainIRQ()
-{
+const byte DEBOUND_DURATION_IN_MS = 10;
+void debounce(volatile unsigned long &count, volatile unsigned long &lastTime) {
   unsigned long currentTime = millis();
-
-  // ignore switch-bounce glitches less than 10mS after initial edge
-  if (currentTime - rainLast > 10)
-  {
-    rainTicks++;
-    rainLast = currentTime;
+  if (currentTime - lastTime > DEBOUND_DURATION_IN_MS) { // ignore switch-bounces for 10ms
+    count++; // 
+    lastTime = currentTime;
   }
 }
 
-
-volatile long lastWindIRQ = 0;
-volatile byte windClicks = 0;
-void wspeedIRQ()
-{
-  unsigned long currentTime = millis();
-
-  // Ignore switch-bounce glitches less than 10ms (142MPH max reading) after the reed switch closes
-  if (currentTime - lastWindIRQ > 10)
-  {
-    windClicks++; // There is 1.492MPH for each click per second.
-    lastWindIRQ = currentTime;
-  }
+volatile unsigned long lastRainIRQ = 0, rainClicks = 0;
+void rainIRQ() {
+  debounce(rainClicks, lastRainIRQ);
 }
 
+volatile unsigned long lastWindIRQ = 0, windClicks = 0;
+void wspeedIRQ() {
+  debounce(windClicks, lastWindIRQ);
+}
 
-void setup()
-{
-  // Wait for a bit before proceeding...
-  delay(2000);
-
-  Serial.begin(115200);
+void setup() {
+  delay(2000); // Wait for a bit before proceeding...
 
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
 
-  // Both LEDs on == init in progress
-  digitalWrite(LED_BLUE, HIGH);
+  digitalWrite(LED_BLUE, HIGH);   // Both LEDs on == init in progress
   digitalWrite(LED_GREEN, HIGH);
 
-  // Initialise the IO and ISR
+  Wire.begin();
+  myHumidity.begin();
+  myPressure.init();
+
   vw_set_ptt_inverted(true); // Required for DR3100
-  vw_setup(2000);	     // Bits per sec
+  vw_setup(2000);	           // Bits per sec
   vw_set_tx_pin(RF_PTT);
   
-  pinMode(WSPEED, INPUT_PULLUP); // input from wind meters windspeed sensor
-  pinMode(RAIN, INPUT_PULLUP);   // input from wind meters rain gauge sensor
-  
+  pinMode(WSPEED, INPUT_PULLUP);
+  pinMode(RAIN, INPUT_PULLUP);
   pinMode(REF_3V3, INPUT);
   pinMode(LIGHT, INPUT);
 
-  //Configure the pressure sensor
-  myPressure.begin(); // Get sensor online
-
-  //Configure the humidity sensor
-  myHumidity.begin();
-
-  digitalWrite(LED_BLUE, LOW);
+  digitalWrite(LED_BLUE, LOW); // both LEDs off == init (nearly) complete
   digitalWrite(LED_GREEN, LOW);
 
   lastSecond = millis();
 
-  // attach external interrupt pins to IRQ functions
   attachInterrupt(0, rainIRQ, FALLING);
   attachInterrupt(1, wspeedIRQ, FALLING);
-
-  // turn on interrupts
   interrupts();
 }
 
-void loop()
-{
-  if(millis() - lastSecond >= 1000)
-  {
-    lastSecond += 1000;
+void loop() {
+  unsigned long now = millis();
+  if (now - lastSecond >= 900) {
+    lastSecond = now;
     sendObservations();
   }
-
-  delay(100);
+  delay(random(200));
 }
 
-
 // Returns the instantaneous wind speed
-float getWindSpeed()
-{
+float getWindSpeed() {
   unsigned long currentTime = millis();
   float deltaTime = currentTime - lastWindCheck; // 750ms
 
@@ -371,8 +280,7 @@ float getWindSpeed()
 }
 
 //Read the wind direction sensor, return heading in degrees
-unsigned int getWindDirection() 
-{
+unsigned int getWindDirection() {
   unsigned int adc = analogRead(WDIR); // get the current reading from the sensor
 
   // The following table is ADC readings for the wind direction sensor output, sorted from low to high.
@@ -398,83 +306,75 @@ unsigned int getWindDirection()
   return (-1); // error, disconnected?
 }
 
-float cToF(float c)
-{
+float cToF(float c) {
   return (c * 9.0)/ 5.0 + 32.0;
 }
 
-bool isHumidityBogus(float x)
-{
-  return x == 998.0 || x == 999.0 ;
+bool isHumidityBogus(float x) {
+  return x == 998.0 || x == 999.0;
 }
 
-bool observeConditions(uint8_t msg[24])
-{
-  /*
-    Message format as follows.
-    Header: 
-      magic(byte): 0xCC
-      sender(byte): 0x01 (for the wx node)
-    Data
-      rainticks(uint): Running count of rain cup tips.
-      humidity(float) : Percent humidity.
-      pressure(float): Pressure in Pascals.
-      tempf(float) : Temperature in degF.
-      windspeed(float): Wind speed in MPH.
-      winddir(float): Wind direction in degrees azimuth.
+bool observeConditions(uint8_t msg[24]) {
+  /*  Message format as follows.
+      Header: 
+        magic(byte): 0xCC
+        sender(byte): 0x01 (for the wx node)
+      Data
+        rainticks(uint): Running count of rain cup tips.
+        humidity(float) : Percent humidity.
+        pressure(float): Pressure in Pascals.
+        tempf(float) : Temperature in degF.
+        windspeed(float): Wind speed in MPH.
+        winddir(float): Wind direction in degrees azimuth.
 
-    Total packet size: 24 bytes
-  */
+      Total packet size: 24 bytes */
 
-  bool success = true;
-
+  // Just blue on == measurements being collected
   digitalWrite(LED_BLUE, HIGH);
 
-  float tempC = 0.0;
-  float pressure = 0.0;
-  if (myPressure.readTempAndPressure(tempC, pressure))
-  {
-    float tempF = cToF(tempC);
-    Serial.print("pressure: ");
-    Serial.print(pressure);
-    Serial.print("\ttempF: ");
-    Serial.println(tempF);
-  }
-  else
-  {
-    Serial.println("pressure and temp acq failed\t");
-  }
-
+  float tempC    = -999.0;
+  float tempF    = -999.0;
+  float pressure = -999.0;
   float humidity = myHumidity.readHumidity();
-  Serial.print("\thumidity: ");
-  Serial.println(humidity);
+  if (isHumidityBogus(humidity)) {
+    runningHumidity.clear();
+    return false;
+  } else {
+    humidity = runningHumidity.latch(humidity);
+  }
+  if (myPressure.readTempAndPressure(tempC, pressure)) {
+    pressure = runningPressure.latch(pressure);
+    tempF = runningTemperature.latch(cToF(tempC));
+  } else {
+    myPressure.init();
+    runningTemperature.clear();
+    runningPressure.clear();
+    return false;
+  }
 
-
-  msg[0] = 0xcc;
+  msg[0] = 0xCC;
   msg[1] = 0x01;
-  *(unsigned int*) (msg +  2) = rainTicks;
+  *(unsigned int*) (msg +  2) = rainClicks;
   *(float*)(msg +  4) = humidity;
   *(float*)(msg +  8) = pressure;
   *(float*)(msg + 12) = cToF(tempC);
   *(float*)(msg + 16) = getWindSpeed();
   *(float*)(msg + 20) = getWindDirection() * 1.0;
+  
   digitalWrite(LED_BLUE, LOW);
 
-  return success;
+  return true;
 }
 
-void sendObservations()
-{
+void sendObservations() {
   const byte msgLength = 24;
   uint8_t msg[msgLength];
 
-  if (observeConditions(msg))
-  {
+  if (observeConditions(msg)) {
+    // just green on == transmission in progress
     digitalWrite(LED_GREEN, HIGH);
     vw_send(msg, msgLength);
     vw_wait_tx();
     digitalWrite(LED_GREEN, LOW);
   }
 }
-
-
