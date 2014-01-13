@@ -195,7 +195,6 @@ const byte REF_3V3 = A3;
 
 // Globals
 unsigned long lastSecond;  // The millis counter to see when a second rolls by
-unsigned long lastWindCheck = 0;
 Simple_MPL3115A2 myPressure;
 HTU21D myHumidity;
 AutoAverager runningPressure;
@@ -262,23 +261,6 @@ void loop() {
   delay(random(200));
 }
 
-// Returns the instantaneous wind speed
-float getWindSpeed() {
-  unsigned long currentTime = millis();
-  float deltaTime = currentTime - lastWindCheck; // 750ms
-
-  deltaTime /= 1000.0; // Covert to seconds
-
-  float windSpeed = (float)windClicks / deltaTime; // 3 / 0.750s = 4
-
-  windClicks = 0; // Reset and start watching for new wind
-  lastWindCheck = currentTime;
-
-  windSpeed *= 1.492; // 4 * 1.492 = 5.968MPH
-
-  return(windSpeed);
-}
-
 //Read the wind direction sensor, return heading in degrees
 unsigned int getWindDirection() {
   unsigned int adc = analogRead(WDIR); // get the current reading from the sensor
@@ -324,7 +306,7 @@ bool observeConditions(uint8_t msg[24]) {
         humidity(float) : Percent humidity.
         pressure(float): Pressure in Pascals.
         tempf(float) : Temperature in degF.
-        windspeed(float): Wind speed in MPH.
+        windticks(ulong): Running count of wind ticks.
         winddir(float): Wind direction in degrees azimuth.
 
       Total packet size: 24 bytes */
@@ -357,8 +339,8 @@ bool observeConditions(uint8_t msg[24]) {
   *(unsigned int*) (msg +  2) = rainClicks;
   *(float*)(msg +  4) = humidity;
   *(float*)(msg +  8) = pressure;
-  *(float*)(msg + 12) = cToF(tempC);
-  *(float*)(msg + 16) = getWindSpeed();
+  *(float*)(msg + 12) = tempF;
+  *(unsigned long*)(msg + 16) = windClicks;
   *(float*)(msg + 20) = getWindDirection() * 1.0;
   
   digitalWrite(LED_BLUE, LOW);
