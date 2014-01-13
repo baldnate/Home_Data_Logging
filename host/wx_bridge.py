@@ -24,6 +24,33 @@ import serial
 import json
 import datetime
 
+class RawRainSample(object):
+	def __init__(self, ticks, time):
+		self.ticks = ticks
+		self.time = time
+
+class RainData(object):
+	def __init__(self, samples=[]):
+		self.samples = samples
+
+	def push(self, sample):
+		self.samples.insert(0, sample)
+
+	def timeWindow(self, seconds):
+		# return culled list of just what has happened in the last <seconds> seconds
+		if len(self.samples) > 0:
+			now = self.samples[0].time
+			return RainData([x for x in self.samples if (now - x.time).total_seconds() <= seconds])
+		else:
+			return RainData()
+
+	def rainfall(self):
+		if len(self.samples) > 1:
+			return (self.samples[0].ticks - self.samples[-1].ticks) * 0.011
+		else:
+			return 0
+
+
 class RawWindSample(object):
 	def __init__(self, dir, ticks, time):
 		super(RawWindSample, self).__init__()
@@ -116,6 +143,20 @@ class WeatherUndergroundData(object):
 		self.indoortempf = 0           # indoor temp in degF
 		self.lastUpdate = datetime.datetime.utcnow()
 
+	def pushRain(self, observation):
+		now = observation["timestamp"]
+		self.rainData.push(RawRainSample(observation["rainticks"], now))
+
+		localnow = now.replace(tzinfo=timezone.utc).astimezone(tz=None)
+		localmidnight = datetime.combine(localnow.date(), time(0))
+		delta = localnow - localmidnight
+
+		data1h = self.rainData.timeWindow(60*60)
+		data1d = self.rainData.timeWindow(delta.total_seconds())
+
+		self.rainin = data1h.rainfall()
+		self.dailyrainin = data1d.rainfall()
+
 	def pushWind(self, observation):
 		now = observation["timestamp"]
 		self.windData.push(RawWindSample(observation["winddir"], observation["windticks"], now))
@@ -139,9 +180,7 @@ class WeatherUndergroundData(object):
 		self.pushWind(observation)
 		self.humidity = observation["humidity"]
 		self.tempf = observation["tempf"]
-		self.rainin = 666      # accumulated rainfall in the last 60 min
-		self.dailyrainin = 666 # rain inches so far today (local time)
-		self.baromin = observation["pressure"]     # barometric pressure inches (altimeter setting)
+		self.baromin = observation["pressure"]     # TODO
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
 
@@ -155,11 +194,11 @@ class WeatherUndergroundData(object):
 		retVal += "15m wind avg: {0}\n".format(self.windAvg15m.format())
 		retVal += "15m gust:     {0}\n".format(self.windGust15m.format())
 		retVal += "humidity:     {0:.0f}%\n".format(round(self.humidity))
-		retVal += "temp:         {0:.0f} °F\n".format(self.tempf)
+		retVal += "temp:         {0:.0f} °F\n".format(round(self.tempf))
 		retVal += "hourly rain:  {0:.2f} in\n".format(self.rainin)
 		retVal += "daily rain:   {0:.2f} in\n".format(self.dailyrainin)
 		retVal += "pressure:     {0:.1f} Pa\n".format(self.baromin)
-		retVal += "indoor temp:  {0:.1f} °F\n".format(self.indoortempf)
+		retVal += "indoor temp:  {0:.0f} °F\n".format(round(self.indoortempf))
 		return retVal
 
 
