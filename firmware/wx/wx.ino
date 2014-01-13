@@ -21,14 +21,10 @@
 /*  
   TODOS
   -----
-  * Barometer final conversion needs work... somewhere.
   * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
   * Measurement quality improvements
     * average the two temp sensors?
-  * Create specialized averager for wind direction?
-    * when direction is not changing much, average samples to get finer granularity
-    * when direction is changing a lot, call it variable and stomp the average
-    * other stuff?
+    * add external probe? (https://www.sparkfun.com/products/11050)
 */
 
 #include <Wire.h>        // For general I2C
