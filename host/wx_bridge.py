@@ -237,7 +237,7 @@ while True:
 	updates = updates + 1
 	if (time - lastTime).total_seconds() >= 1:
 		print wud.format()
-		print "{0} updates/sec".format(updates/(time.lastTime.total_seconds()))
+		print "{0} updates/sec".format(updates/(time - lastTime).total_seconds())
 		lastTime = time
 		updates = 0
 	if (time - lastTweetTime).total_seconds() >= 60*5:
