@@ -12,8 +12,8 @@ This is a collection of software that I am developing to do data logging around 
 Repository Contents
 ------------------
 
-* **/Documentation** - Detailed design documents
-* **/Firmware** - Firmware source for the Arduino nodes in this system
+* **/firmware** - Firmware source for the Arduino nodes in this system
+* **/host** - Host scripts
 
 
 License Information
