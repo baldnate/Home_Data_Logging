@@ -201,8 +201,13 @@ class WeatherUndergroundData(object):
 		retVal += "indoor temp:  {0:.0f} °F\n".format(round(self.indoortempf))
 		return retVal
 
+ser = None
 
-ser = serial.Serial('/dev/tty.usbserial-A602ZBVU', 115200)
+try:
+	ser = serial.Serial('/dev/tty.usbserial-A602ZBVU', 115200)
+except:
+	ser = serial.Serial('/dev/ttyUSB0', 115200)
+
 wud = WeatherUndergroundData()
 lastTime = datetime.datetime.utcnow()
 
