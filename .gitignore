@@ -1,6 +1,8 @@
+# protect the secrets
+secrets.json
+
 # Joe temp files.  JOE FOREVER
 *~
-
 
 #################
 ## Eclipse
