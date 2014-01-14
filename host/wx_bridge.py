@@ -227,6 +227,7 @@ except:
 
 wud = WeatherUndergroundData()
 lastTweetTime = lastTime = datetime.datetime.utcnow()
+lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
 
@@ -240,16 +241,20 @@ while True:
 	data['timestamp'] = time
 	wud.pushObservation(data)
 	updates = updates + 1
-	if (time - lastTime).total_seconds() >= 1:
+	if (time - lastTime).total_seconds() >= 60:
 		print wud.format()
 		print "{0} updates/sec".format(updates/(time - lastTime).total_seconds())
 		lastTime = time
 		updates = 0
 	if (time - lastTweetTime).total_seconds() >= 15 * 60:
-		print "Tweeting..."
-		twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
-		twitter.update_status(status=wud.tweet())
-		lastTweetTime = time
+		status = wud.tweet()
+		if lastTweetText != status:
+			print "Tweeting..."
+			twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
+			twitter.update_status(status=wud.tweet())
+			lastTweetTime = time
+		else:
+			print "Not tweeting due to unchanged conditions."
 
 
 
