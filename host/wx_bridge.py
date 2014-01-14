@@ -87,6 +87,11 @@ class WindSpeed(object):
 		if self.dir == None:
 			return ""
 		return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
+		
+	def tweet(self):
+		if self.dir == None:
+			return "N/A"
+		return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
 
 
 class WindData(object):
@@ -204,12 +209,12 @@ class WeatherUndergroundData(object):
 
 	def tweet(self):
 		retVal = ""
-		retVal += "wind:{0} ".format(self.windAvg15m.format())
-		retVal += "gust:{0} ".format(self.windGust15m.format())
-		retVal += "hum:{0:.0f}% ".format(round(self.humidity))
-		retVal += "temp:{0:.0f}°F ".format(round(self.tempf))
-		retVal += "rainhr:{0:.2f}\" ".format(self.rainin)
-		retVal += "rainday:{0:.2f}\"".format(self.dailyrainin)
+		retVal += "wind: {0}\n".format(self.windAvg15m.tweet())
+		retVal += "gust: {0}\n".format(self.windGust15m.tweet())
+		retVal += "hum: {0:.0f}%\n".format(round(self.humidity))
+		retVal += "temp: {0:.0f}°F\n".format(round(self.tempf))
+		retVal += "rain(hour): {0:.2f}\"\n".format(self.rainin)
+		retVal += "rain(today): {0:.2f}\"".format(self.dailyrainin)
 		return retVal
 
 
@@ -221,7 +226,7 @@ except:
 	ser = serial.Serial('/dev/ttyUSB0', 115200)
 
 wud = WeatherUndergroundData()
-lastTime = datetime.datetime.utcnow()
+lastTweetTime = lastTime = datetime.datetime.utcnow()
 updates = 0
 secrets = json.load(open('secrets.json'))
 
@@ -240,9 +245,11 @@ while True:
 		print "{0} updates/sec".format(updates/(time - lastTime).total_seconds())
 		lastTime = time
 		updates = 0
-	if (time - lastTweetTime).total_seconds() >= 60*5:
+	if (time - lastTweetTime).total_seconds() >= 15 * 60:
+		print "Tweeting..."
 		twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
 		twitter.update_status(status=wud.tweet())
+		lastTweetTime = time
 
 
 
