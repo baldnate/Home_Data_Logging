@@ -23,6 +23,7 @@
 import serial
 import json
 import datetime
+from twython import Twython
 
 class RawRainSample(object):
 	def __init__(self, ticks, time):
@@ -194,12 +195,23 @@ class WeatherUndergroundData(object):
 		retVal += "15m wind avg: {0}\n".format(self.windAvg15m.format())
 		retVal += "15m gust:     {0}\n".format(self.windGust15m.format())
 		retVal += "humidity:     {0:.0f}%\n".format(round(self.humidity))
-		retVal += "temp:         {0:.0f} °F\n".format(round(self.tempf))
-		retVal += "hourly rain:  {0:.2f} in\n".format(self.rainin)
-		retVal += "daily rain:   {0:.2f} in\n".format(self.dailyrainin)
+		retVal += "temp:         {0:.0f}°F\n".format(round(self.tempf))
+		retVal += "hourly rain:  {0:.2f}\"\n".format(self.rainin)
+		retVal += "daily rain:   {0:.2f}\"\n".format(self.dailyrainin)
 		retVal += "pressure:     {0:.1f} Pa\n".format(self.baromin)
-		retVal += "indoor temp:  {0:.0f} °F\n".format(round(self.indoortempf))
+		retVal += "indoor temp:  {0:.0f}°F\n".format(round(self.indoortempf))
 		return retVal
+
+	def tweet(self):
+		retVal = ""
+		retVal += "wind:{0} ".format(self.windAvg15m.format())
+		retVal += "gust:{0} ".format(self.windGust15m.format())
+		retVal += "hum:{0:.0f}% ".format(round(self.humidity))
+		retVal += "temp:{0:.0f}°F ".format(round(self.tempf))
+		retVal += "rainhr:{0:.2f}\" ".format(self.rainin)
+		retVal += "rainday:{0:.2f}\"".format(self.dailyrainin)
+		return retVal
+
 
 ser = None
 
@@ -211,6 +223,7 @@ except:
 wud = WeatherUndergroundData()
 lastTime = datetime.datetime.utcnow()
 updates = 0
+secrets = json.load(open('secrets.json'))
 
 while True:
 	line = ser.readline()
@@ -227,4 +240,9 @@ while True:
 		print "{0} updates/sec".format(updates/(time.lastTime.total_seconds()))
 		lastTime = time
 		updates = 0
+	if (time - lastTweetTime).total_seconds() >= 60*5:
+		twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
+		twitter.update_status(status=wud.tweet())
+
+
 
