@@ -12,6 +12,7 @@ This is a collection of software that I am developing to do data logging around 
 Repository Contents
 ------------------
 
+* *TODO.md* - Centralized TODO list for project
 * **/firmware** - Firmware source for the Arduino nodes in this system
 * **/host** - Host scripts
 

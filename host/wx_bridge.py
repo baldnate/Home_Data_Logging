@@ -11,14 +11,7 @@
 # 
 # Current destinations:
 # * Twitter (@baldwx)
-# * weatherunderground PWS
-
-# TODOS
-# * rain
-# * conversion from pressure in absolute pascals to altimeter setting inches
-# * ticks lists compression via eliding points without data
-# * ticks lists should also keep around the oldest point in some form or fashion
-# * posting to twitter or wunderground
+# * stdout
 
 import serial
 import json

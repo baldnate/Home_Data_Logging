@@ -18,15 +18,6 @@
   HTU21D - https://dlnmh9ip6v2uc.cloudfront.net/assets/9/f/8/8/5/5287be1e757b7f2f378b4567.zip
 */
 
-/*  
-  TODOS
-  -----
-  * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
-  * Measurement quality improvements
-    * average the two temp sensors?
-    * add external probe? (https://www.sparkfun.com/products/11050)
-*/
-
 #include <Wire.h>        // For general I2C
 #include "HTU21D.h"      // For humidity sensor
 #include <VirtualWire.h> // For RF transmitter
@@ -197,10 +188,10 @@ AutoAverager runningPressure;
 AutoAverager runningTemperature;
 AutoAverager runningHumidity;
 
-const byte DEBOUND_DURATION_IN_MS = 10;
+const byte DEBOUNCE_DURATION_IN_MS = 10;
 void debounce(volatile unsigned long &count, volatile unsigned long &lastTime) {
   unsigned long currentTime = millis();
-  if (currentTime - lastTime > DEBOUND_DURATION_IN_MS) { // ignore switch-bounces for 10ms
+  if (currentTime - lastTime > DEBOUNCE_DURATION_IN_MS) { // ignore switch-bounces for 10ms
     count++; // 
     lastTime = currentTime;
   }

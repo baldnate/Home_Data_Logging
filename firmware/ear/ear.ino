@@ -14,12 +14,6 @@
   VirtualWire - http://www.airspayce.com/mikem/arduino/VirtualWire/
 */
 
-/*
-  TODOS
-  -----
-  * None
-*/
-
 #include <VirtualWire.h>
 #include <Wire.h>
 
