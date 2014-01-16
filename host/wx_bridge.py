@@ -243,8 +243,13 @@ while True:
 		status = wud.tweet()
 		if lastTweetText != status:
 			print "Tweeting..."
-			twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
-			twitter.update_status(status=wud.tweet())
+			try:
+				twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
+				twitter.update_status(status=status)
+			except twython.exceptions.TwythonError as e:
+				print "Got exception:\n{0}".format(str(e))
+				# Twitter API returned a 503 (Service Unavailable), Over capacity
+				# ^^^ retry
 			lastTweetTime = time
 		else:
 			print "Not tweeting due to unchanged conditions."
