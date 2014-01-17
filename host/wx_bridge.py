@@ -203,11 +203,14 @@ class WeatherUndergroundData(object):
 	def tweet(self):
 		retVal = ""
 		retVal += "wind: {0}\n".format(self.windAvg15m.tweet())
-		retVal += "gust: {0}\n".format(self.windGust15m.tweet())
+		if self.windGust15m.speed > 0.0:
+			retVal += "gust: {0}\n".format(self.windGust15m.tweet())
 		retVal += "hum: {0:.0f}%\n".format(round(self.humidity))
 		retVal += "temp: {0:.0f}°F\n".format(round(self.tempf))
-		retVal += "rain(hour): {0:.2f}\"\n".format(self.rainin)
-		retVal += "rain(today): {0:.2f}\"".format(self.dailyrainin)
+		if self.rainin > 0.0:
+			retVal += "rain(hour): {0:.2f}\"\n".format(self.rainin)
+		if self.dailyrainin > 0.0:
+			retVal += "rain(today): {0:.2f}\"".format(self.dailyrainin)
 		return retVal
 
 
@@ -219,10 +222,12 @@ except:
 	ser = serial.Serial('/dev/ttyUSB0', 115200)
 
 wud = WeatherUndergroundData()
-lastTweetTime = lastTime = datetime.datetime.utcnow()
+lastTweetTime = lastTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
 lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
+
+print("wx_bridge active, ready to listen...")
 
 while True:
 	line = ser.readline()
@@ -234,18 +239,22 @@ while True:
 	data['timestamp'] = time
 	wud.pushObservation(data)
 	updates = updates + 1
-	if (time - lastTime).total_seconds() >= 60:
+	if updates < 9:
+		continue
+	if updates % 10 == 0:
+		print "{0:.2f} updates/sec".format(updates/(time - lastTime).total_seconds())	
+	if (time - lastTime).total_seconds() >= 10 * 60:
 		print wud.format()
-		print "{0} updates/sec".format(updates/(time - lastTime).total_seconds())
 		lastTime = time
 		updates = 0
-	if (time - lastTweetTime).total_seconds() >= 15 * 60:
+	if (time - lastTweetTime).total_seconds() >= 60 * 60: # once an hour
 		status = wud.tweet()
 		if lastTweetText != status:
 			print "Tweeting..."
 			try:
 				twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
 				twitter.update_status(status=status)
+				print "Tweet successful"
 			except twython.exceptions.TwythonError as e:
 				print "Got exception:\n{0}".format(str(e))
 				# Twitter API returned a 503 (Service Unavailable), Over capacity
