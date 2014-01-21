@@ -61,25 +61,27 @@ class WindSpeed(object):
 			self.dir = None
 			self.time = datetime.datetime.utcnow()
 		else:
-			deltaTime = newerSample.time - olderSample.time
-			deltaTicks = newerSample.ticks - olderSample.ticks
+			deltaTime = samples[0].time - samples[-1].time
+			deltaTicks = samples[0].ticks - samples[-1].ticks
 			if deltaTime:
 				self.speed = deltaTicks / deltaTime.total_seconds() * 1.492
 			else:
 				self.speed = 0.0
-			self.dir = circularMean()
-			self.time = newerSample.time
+			self.dir = self.circularMean(samples)
+			self.time = samples[0].time
 
-	def circularMean(self):
+	def circularMean(self, samples):
 		xacc = 0.0
 		yacc = 0.0
 		count = 0.0
-		for sample in self.samples:
+		for sample in samples:
 			if sample.dir == 65535: # invalid reading
 				continue
 			xacc += math.sin(math.radians(sample.dir))
 			yacc += math.cos(math.radians(sample.dir))
-			count + 1.0
+			count += 1.0
+		if count == 0:
+			return None
 		x = xacc / count
 		y = yacc / count
 		magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
@@ -87,7 +89,7 @@ class WindSpeed(object):
 		if magnitude < 0.2:
 			return None
 		else:
-			return math.degrees(math.atan2(x, y))
+			return (360.0 + math.degrees(math.atan2(x, y))) % 360
 
 	def returnGreater(self, x):
 		if x.speed > self.speed:
@@ -140,7 +142,7 @@ class WindData(object):
 		if len(self.samples) > 0:
 			newerSample = self.samples[0]
 			for olderSample in self.samples[1:]:
-				max = max.returnGreater(WindSpeed(newerSample, olderSample))
+				max = max.returnGreater(WindSpeed([newerSample, olderSample]))
 				newerSample = olderSample
 		return max
 
