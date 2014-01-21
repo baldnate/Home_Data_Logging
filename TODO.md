@@ -7,11 +7,9 @@ host/wx_bridge.py
 * heat index / wind chill
 * wind related    
    * consider mean of circular quantities for gust direction?
-* dew-point
 * implement non-numeric reports (rain == trace, etc.)
 * shift from time based tweeting to interesting condition change based tweeting
 * add summary tweets?  overnight low, gust of the day, etc.
-* conversion from pressure in absolute pascals to altimeter setting inches
 * rain/wind data compression:
    * elide points that contain no new data (i.e.: more recent timestamp, same number of ticks and direction)
    * when culling, shift the latest culled sample to the window beginning.

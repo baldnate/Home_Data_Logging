@@ -86,7 +86,7 @@ class WindSpeed(object):
 		y = yacc / count
 		magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
 		# if the magnitude is too low, return None (variable)
-		if magnitude < 0.2:
+		if magnitude < 0.3:
 			return None
 		else:
 			return (360.0 + math.degrees(math.atan2(x, y))) % 360
@@ -198,11 +198,32 @@ class WeatherUndergroundData(object):
 
 		self.windData = data15m # discard data older that 15 minutes
 
+	def pascalsToAltSettingInHg(self, pascals):
+		# equation for absolute pressure to altimeter setting pressure transcribed from
+		# http://www.srh.noaa.gov/images/epz/wxcalc/altimeterSetting.pdf
+		# mb to inches of Hg from:
+		# http://www.lamons.com/public/pdf/engineering/PressureConversionFormulas.pdf
+		a = (pascals / 100.0) - 0.3 # Pmb - 0.3
+		h = prefs["WX_ALTITUDE_IN_METERS"]
+		return math.pow(((h / math.pow(a, 0.190284)) * 0.000084228806861) + 1, 5.255302600323727) * a * 0.0295300
+
+	def cToF(self, c):
+		return (c * 9.0) / 5.0 + 32.0
+
+	def fToC(self, f):
+		return (f - 32.0) * 5.0 / 9.0
+
+	def calcDewpoint(self, tempF, rh):
+		tempC = self.fToC(tempF)
+		b = (math.log(rh / 100.0) + ((17.27 * tempC) / (237.3 + tempC))) / 17.27
+		return self.cToF((237.3 * b) / (1.0 - b))
+
 	def pushObservation(self, observation):
 		self.pushWind(observation)
 		self.humidity = observation["humidity"]
 		self.tempf = observation["tempf"]
-		self.baromin = observation["pressure"]     # TODO
+		self.dewpointf = self.calcDewpoint(self.tempf, self.humidity)
+		self.baromin = self.pascalsToAltSettingInHg(observation["pressure"])
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
 
@@ -227,6 +248,8 @@ class WeatherUndergroundData(object):
 		retVal = ""
 		retVal += "{0:.0f}°F".format(round(self.tempf))
 		retVal += ", {0:.0f}%RH".format(round(self.humidity))
+		retVal += ", {0:.0f}dew°F".format(round(self.dewpointf))
+		retVal += ", {0:.2f}\"Hg".format(self.baromin)
 		if self.windAvg15m.isCalm():
 			retVal += ", calm"
 		else:
@@ -263,6 +286,13 @@ lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
 
+# toggles output settings
+debugMode = prefs["DEBUG"] != 0
+
+consoleUpdateInterval = 10 * 60
+if debugMode:
+	consoleUpdateInterval = 15
+
 print "wx_bridge initialized and listening to {0}".format(serialPort)
 
 while True:
@@ -279,11 +309,11 @@ while True:
 		continue
 	if updates % 10 == 0:
 		print "{0:.2f} updates/sec".format(updates/(time - lastTime).total_seconds())	
-	if (time - lastTime).total_seconds() >= 10 * 60:
+	if (time - lastTime).total_seconds() >= consoleUpdateInterval:
 		print wud.tweet()
 		lastTime = time
 		updates = 0
-	if (time - lastTweetTime).total_seconds() >= 60 * 60: # once an hour
+	if not(debugMode) and (time - lastTweetTime).total_seconds() >= 60 * 60: # once an hour
 		status = wud.tweet()
 		if lastTweetText != status:
 			print "Tweeting..."
