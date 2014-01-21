@@ -5,9 +5,8 @@ host/wx_bridge.py
 -----------------
 
 * heat index / wind chill
-* wind related
-   * fix no wind direction bug
-   * perform mean of circular quantities on direction
+* wind related    
+   * consider mean of circular quantities for gust direction?
 * dew-point
 * implement non-numeric reports (rain == trace, etc.)
 * shift from time based tweeting to interesting condition change based tweeting
@@ -20,11 +19,8 @@ host/wx_bridge.py
    * add PWS secrets to secrets file
 * create prefs files for non-secret config
    * create example prefs and secrets for documentation purposes
-   * add serial port to prefs
    * scheduling info?
 * consider modularizing once feature set is more stable
-* add web-page target
-* improve quality of service tracking (packet loss)
 
 host/serial_capture.py
 ----------------------
