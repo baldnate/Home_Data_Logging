@@ -4,9 +4,11 @@ TODOS
 host/wx_bridge.py
 -----------------
 
-* fix no wind direction bug
-* implement non-numeric reports (wind == calm, rain == trace, etc.)
-* consider doing actual vector wind averaging
+* wind related
+   * fix no wind direction bug
+   * perform mean of circular quantities on direction
+* dew-point
+* implement non-numeric reports (rain == trace, etc.)
 * shift from time based tweeting to interesting condition change based tweeting
 * add summary tweets?  overnight low, gust of the day, etc.
 * conversion from pressure in absolute pascals to altimeter setting inches
