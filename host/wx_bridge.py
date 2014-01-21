@@ -16,6 +16,7 @@
 import serial
 import json
 import datetime
+import math
 from twython import Twython
 
 class RawRainSample(object):
@@ -54,20 +55,39 @@ class RawWindSample(object):
 
 
 class WindSpeed(object):
-	def __init__(self, newerSample=None, olderSample=None):
-		if (newerSample and olderSample):
+	def __init__(self, samples=None):
+		if samples == None:
+			self.speed = 0.0
+			self.dir = None
+			self.time = datetime.datetime.utcnow()
+		else:
 			deltaTime = newerSample.time - olderSample.time
 			deltaTicks = newerSample.ticks - olderSample.ticks
 			if deltaTime:
 				self.speed = deltaTicks / deltaTime.total_seconds() * 1.492
 			else:
 				self.speed = 0.0
-			self.dir = newerSample.dir
+			self.dir = circularMean()
 			self.time = newerSample.time
+
+	def circularMean(self):
+		xacc = 0.0
+		yacc = 0.0
+		count = 0.0
+		for sample in self.samples:
+			if sample.dir == 65535: # invalid reading
+				continue
+			xacc += math.sin(math.radians(sample.dir))
+			yacc += math.cos(math.radians(sample.dir))
+			count + 1.0
+		x = xacc / count
+		y = yacc / count
+		magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
+		# if the magnitude is too low, return None (variable)
+		if magnitude < 0.2:
+			return None
 		else:
-			self.speed = 0.0
-			self.dir = None
-			self.time = datetime.datetime.utcnow()
+			return math.degrees(math.atan2(x, y))
 
 	def returnGreater(self, x):
 		if x.speed > self.speed:
@@ -75,20 +95,15 @@ class WindSpeed(object):
 		if x.speed == self.speed and x.time > self.time:
 			return x
 		return self
-
-	def format(self):
-		if self.dir == None:
-			return ""
-		return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
 	
 	def isCalm(self):
 		return round(self.speed) < 0
 
 	def tweet(self):
-		if self.dir == None:
-			return "N/A"
 		if self.isCalm():
 			return "calm"
+		elif self.dir == None:
+			return "{0:.0f} MPH".format(round(self.speed))
 		else:
 			return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
 
@@ -110,13 +125,13 @@ class WindData(object):
 
 	def curr(self):
 		if len(self.samples) > 1:
-			return WindSpeed(self.samples[0], self.samples[1])
+			return WindSpeed(self.samples[0:1])
 		else:
 			return WindSpeed()
 
 	def avg(self):
 		if len(self.samples) > 1:
-			return WindSpeed(self.samples[0], self.samples[-1])
+			return WindSpeed(self.samples)
 		else:
 			return WindSpeed()
 
@@ -246,7 +261,7 @@ lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
 
-print("wx_bridge active, ready to listen...")
+print "wx_bridge initialized and listening to {0}".format(serialPort)
 
 while True:
 	line = ser.readline()
