@@ -209,7 +209,7 @@ class WeatherUndergroundData(object):
 	def tweet(self):
 		retVal = ""
 		retVal += "{0:.0f}°F".format(round(self.tempf))
-		retVal += ", {0:.0f}%%RH".format(round(self.humidity))
+		retVal += ", {0:.0f}%RH".format(round(self.humidity))
 		if self.windAvg15m.isCalm():
 			retVal += ", calm"
 		else:
