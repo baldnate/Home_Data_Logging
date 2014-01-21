@@ -80,11 +80,17 @@ class WindSpeed(object):
 		if self.dir == None:
 			return ""
 		return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
-		
+	
+	def isCalm(self):
+		return round(self.speed) < 0
+
 	def tweet(self):
 		if self.dir == None:
 			return "N/A"
-		return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
+		if self.isCalm():
+			return "calm"
+		else:
+			return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
 
 
 class WindData(object):
@@ -202,15 +208,18 @@ class WeatherUndergroundData(object):
 
 	def tweet(self):
 		retVal = ""
-		retVal += "wind: {0}\n".format(self.windAvg15m.tweet())
-		if self.windGust15m.speed > 0.0:
-			retVal += "gust: {0}\n".format(self.windGust15m.tweet())
-		retVal += "hum: {0:.0f}%\n".format(round(self.humidity))
-		retVal += "temp: {0:.0f}°F\n".format(round(self.tempf))
+		retVal += "{0:.0f}°F".format(round(self.tempf))
+		retVal += ", {0:.0f}%%RH".format(round(self.humidity))
+		if self.windAvg15m.isCalm():
+			retVal += ", calm"
+		else:
+			retVal += ", wind {0}".format(self.windAvg15m.tweet())
+			if not(self.windGust15m.isCalm()):
+				retVal += ", gust {0}".format(self.windGust15m.tweet())
 		if self.rainin > 0.0:
-			retVal += "rain(hour): {0:.2f}\"\n".format(self.rainin)
+			retVal += ", rain(hour) {0:.2f}\"".format(self.rainin)
 		if self.dailyrainin > 0.0:
-			retVal += "rain(today): {0:.2f}\"".format(self.dailyrainin)
+			retVal += ", rain(today) {0:.2f}\"".format(self.dailyrainin)
 		return retVal
 
 
@@ -244,7 +253,7 @@ while True:
 	if updates % 10 == 0:
 		print "{0:.2f} updates/sec".format(updates/(time - lastTime).total_seconds())	
 	if (time - lastTime).total_seconds() >= 10 * 60:
-		print wud.format()
+		print wud.tweet()
 		lastTime = time
 		updates = 0
 	if (time - lastTweetTime).total_seconds() >= 60 * 60: # once an hour
