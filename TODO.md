@@ -4,6 +4,7 @@ TODOS
 host/wx_bridge.py
 -----------------
 
+* heat index / wind chill
 * wind related
    * fix no wind direction bug
    * perform mean of circular quantities on direction
