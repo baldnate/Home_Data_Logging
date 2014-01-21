@@ -4,9 +4,10 @@ TODOS
 host/wx_bridge.py
 -----------------
 
-* heat index / wind chill
-* wind related    
-   * consider mean of circular quantities for gust direction?
+* heat index
+* reconsider wind measurement intervals
+	* gusts over reporting period
+	* wind from a short averaging period
 * implement non-numeric reports (rain == trace, etc.)
 * shift from time based tweeting to interesting condition change based tweeting
 * add summary tweets?  overnight low, gust of the day, etc.
