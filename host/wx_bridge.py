@@ -100,7 +100,7 @@ class WindSpeed(object):
 		return self
 	
 	def isCalm(self):
-		return round(self.speed) < 0
+		return round(self.speed) == 0
 
 	def tweet(self):
 		if self.isCalm():
@@ -145,6 +145,7 @@ class WindData(object):
 			for olderSample in self.samples[1:]:
 				max = max.returnGreater(WindSpeed([newerSample, olderSample]))
 				newerSample = olderSample
+		max.dir = None
 		return max
 
 
@@ -238,8 +239,8 @@ class WeatherUndergroundData(object):
 			retVal += ", calm"
 		else:
 			retVal += ", wind {0}".format(self.windAvg15m.tweet())
-			if not(self.windGust15m.isCalm()):
-				retVal += ", gust {0}".format(self.windGust15m.tweet())
+			if self.windGust15m.speed > self.windAvg15m.speed:
+				retVal += " (gust {0})".format(self.windGust15m.tweet())
 		if self.rainin > 0.0:
 			retVal += ", rain(hour) {0:.2f}\"".format(self.rainin)
 		if self.dailyrainin > 0.0:
