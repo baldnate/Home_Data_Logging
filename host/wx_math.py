@@ -64,6 +64,22 @@ def dewpoint(degF, rh):
     b = (math.log(rh / 100.0) + ((17.27 * tempC) / (237.3 + tempC))) / 17.27
     return cToF((237.3 * b) / (1.0 - b))
 
+def windChill(degF, windMPH):
+    """
+    Calculate windchill from temperature and windspeed.
+    Equation and test points from http://www.nws.noaa.gov/om/windchill/
+    >>> round(windChill(0, 35))
+    -27.0
+    >>> round(windChill(40, 5))
+    36.0
+    >>> round(windChill(-45, 60))
+    -98.0
+    """
+    if degF > 50.0 and windMPH < 3.0:
+        return None
+    else:
+        return 35.74 + (0.6215 * degF) - 35.75 * math.pow(windMPH, 0.16) + (0.4275 * degF) * math.pow(windMPH, 0.16)
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()

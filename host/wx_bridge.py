@@ -204,6 +204,7 @@ class WeatherUndergroundData(object):
 		self.humidity = observation["humidity"]
 		self.tempf = observation["tempf"]
 		self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
+		self.windchillf = wx_math.windChill(self.tempf, self.windCurr.speed)
 		self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
@@ -230,6 +231,8 @@ class WeatherUndergroundData(object):
 		retVal += "{0:.0f}°F".format(round(self.tempf))
 		retVal += ", {0:.0f}%RH".format(round(self.humidity))
 		retVal += ", {0:.0f}dew°F".format(round(self.dewpointf))
+		if (self.windchillf is not None):
+			retVal += ", {0:.0f}WC°F".format(round(self.windchillf))
 		retVal += ", {0:.2f}\"Hg".format(self.baromin)
 		if self.windAvg15m.isCalm():
 			retVal += ", calm"
