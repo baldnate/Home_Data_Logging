@@ -17,6 +17,7 @@ import serial
 import json
 import datetime
 import math
+import wx_math
 from twython import Twython
 
 class RawRainSample(object):
@@ -198,32 +199,12 @@ class WeatherUndergroundData(object):
 
 		self.windData = data15m # discard data older that 15 minutes
 
-	def pascalsToAltSettingInHg(self, pascals):
-		# equation for absolute pressure to altimeter setting pressure transcribed from
-		# http://www.srh.noaa.gov/images/epz/wxcalc/altimeterSetting.pdf
-		# mb to inches of Hg from:
-		# http://www.lamons.com/public/pdf/engineering/PressureConversionFormulas.pdf
-		a = (pascals / 100.0) - 0.3 # Pmb - 0.3
-		h = prefs["WX_ALTITUDE_IN_METERS"]
-		return math.pow(((h / math.pow(a, 0.190284)) * 0.000084228806861) + 1, 5.255302600323727) * a * 0.0295300
-
-	def cToF(self, c):
-		return (c * 9.0) / 5.0 + 32.0
-
-	def fToC(self, f):
-		return (f - 32.0) * 5.0 / 9.0
-
-	def calcDewpoint(self, tempF, rh):
-		tempC = self.fToC(tempF)
-		b = (math.log(rh / 100.0) + ((17.27 * tempC) / (237.3 + tempC))) / 17.27
-		return self.cToF((237.3 * b) / (1.0 - b))
-
 	def pushObservation(self, observation):
 		self.pushWind(observation)
 		self.humidity = observation["humidity"]
 		self.tempf = observation["tempf"]
-		self.dewpointf = self.calcDewpoint(self.tempf, self.humidity)
-		self.baromin = self.pascalsToAltSettingInHg(observation["pressure"])
+		self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
+		self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
 
