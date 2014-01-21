@@ -225,10 +225,20 @@ class WeatherUndergroundData(object):
 
 ser = None
 
-try:
-	ser = serial.Serial('/dev/tty.usbserial-A602ZBVU', 115200)
-except:
-	ser = serial.Serial('/dev/ttyUSB0', 115200)
+prefs = json.load(open('prefs.json'))
+
+connected = False
+for serialPort in prefs["SERIAL_PORTS"]:
+	try:
+		ser = serial.Serial(serialPort, 115200)
+		connected = True
+		break
+	except:
+		continue
+
+if not(connected):
+	print "Could not connect to serial port, check connections and prefs.json[SERIAL_PORTS]."
+	exit(-1)
 
 wud = WeatherUndergroundData()
 lastTweetTime = lastTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
