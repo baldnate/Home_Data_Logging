@@ -68,29 +68,13 @@ class WindSpeed(object):
 				self.speed = deltaTicks / deltaTime.total_seconds() * 1.492
 			else:
 				self.speed = 0.0
-			self.dir = self.circularMean(samples)
+			(angle, magnitude) = wx_math.angularMean([x.dir for x in samples if x.dir != 65535])
+			if magnitude > .4:
+				self.dir = angle
+			else:
+				self.dir = None
 			self.time = samples[0].time
 
-	def circularMean(self, samples):
-		xacc = 0.0
-		yacc = 0.0
-		count = 0.0
-		for sample in samples:
-			if sample.dir == 65535: # invalid reading
-				continue
-			xacc += math.sin(math.radians(sample.dir))
-			yacc += math.cos(math.radians(sample.dir))
-			count += 1.0
-		if count == 0:
-			return None
-		x = xacc / count
-		y = yacc / count
-		magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
-		# if the magnitude is too low, return None (variable)
-		if magnitude < 0.3:
-			return None
-		else:
-			return (360.0 + math.degrees(math.atan2(x, y))) % 360
 
 	def returnGreater(self, x):
 		if x.speed > self.speed:

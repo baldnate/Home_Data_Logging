@@ -4,6 +4,7 @@ TODOS
 host/wx_bridge.py
 -----------------
 
+* wind rollover bug needs fixing
 * heat index
 * reconsider wind measurement intervals
 	* gusts over reporting period

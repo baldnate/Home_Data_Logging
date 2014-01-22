@@ -74,11 +74,38 @@ def windChill(degF, windMPH):
     36.0
     >>> round(windChill(-45, 60))
     -98.0
+    >>> windChill(60,200) is None
+    True
+    >>> windChill(-100, 0) is None
+    True
     """
-    if degF > 50.0 and windMPH < 3.0:
+    if degF > 50.0 or windMPH < 3.0:
         return None
     else:
         return 35.74 + (0.6215 * degF) - 35.75 * math.pow(windMPH, 0.16) + (0.4275 * degF) * math.pow(windMPH, 0.16)
+
+def angularMean(angles):
+    """
+    Formula taken from http://en.wikipedia.org/wiki/Mean_of_circular_quantities
+    Returns (angle, magnitude).
+    >>> angularMean([45,45,45])
+    (45.0, 1.0)
+    >>> angularMean([0, 180])[1] < 0.0001
+    True
+    """
+    xacc = 0.0
+    yacc = 0.0
+    count = 0.0
+    for angle in angles:
+        xacc += math.cos(math.radians(angle))
+        yacc += math.sin(math.radians(angle))
+        count += 1.0
+    if count == 0:
+        return None
+    x = xacc / count
+    y = yacc / count
+    magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
+    return ((360.0 + math.degrees(math.atan2(y, x))) % 360, magnitude)
 
 if __name__ == "__main__":
     import doctest
