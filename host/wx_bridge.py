@@ -170,7 +170,8 @@ class WeatherUndergroundData(object):
 		self.windData.push(RawWindSample(observation["winddir"], observation["windticks"], now))
 
 		# slice for various time windows
-		data15m = self.windData.timeWindow(15*60)
+		data1h = self.windData.timeWindow(60*60)
+		data15m = data1h.timeWindow(15*60)
 		data10m = data15m.timeWindow(10*60)
 		data2m = data10m.timeWindow(2*60)
 		data30s = data2m.timeWindow(30)
@@ -181,18 +182,31 @@ class WeatherUndergroundData(object):
 		self.windGust10m = data10m.gust()
 		self.windAvg15m = data15m.avg()
 		self.windGust15m = data15m.gust()
+		self.windGust1h = data1h.gust()
 
-		self.windData = data15m # discard data older that 15 minutes
+		self.windData = data1h # discard data older than we care about
 
 	def pushObservation(self, observation):
 		self.pushWind(observation)
 		self.humidity = observation["humidity"]
 		self.tempf = observation["tempf"]
 		self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
+		self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
 		self.windchillf = wx_math.windChill(self.tempf, self.windCurr.speed)
 		self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
+
+	def formatApparentTemperature(self):
+		if self.windchillf is not None:
+			wc = round(self.windchillf)
+			if wc > round(self.tempf) - 1:
+				return " (feels like {0:.0f}°F".format(wc)
+		else:
+			hi = round(self.heatindexf)
+			if hi > round(self.tempf) + 1:
+				return " (feels like {0:.0f}°F".format(hi)
+		return ""
 
 	def format(self):
 		retVal = ""
@@ -214,17 +228,16 @@ class WeatherUndergroundData(object):
 	def tweet(self):
 		retVal = ""
 		retVal += "{0:.0f}°F".format(round(self.tempf))
+		retVal += self.formatApparentTemperature()
 		retVal += ", {0:.0f}%RH".format(round(self.humidity))
 		retVal += ", {0:.0f}dew°F".format(round(self.dewpointf))
-		if (self.windchillf is not None):
-			retVal += ", {0:.0f}WC°F".format(round(self.windchillf))
 		retVal += ", {0:.2f}\"Hg".format(self.baromin)
-		if self.windAvg15m.isCalm():
+		if self.windCurr.isCalm():
 			retVal += ", calm"
 		else:
-			retVal += ", wind {0}".format(self.windAvg15m.tweet())
-			if self.windGust15m.speed > self.windAvg15m.speed:
-				retVal += " (gust {0})".format(self.windGust15m.tweet())
+			retVal += ", wind {0}".format(self.windCurr.tweet())
+		if self.windGust1h.speed > self.windCurr.speed:
+			retVal += " (gust {0})".format(self.windGust1h.tweet())
 		if self.rainin > 0.0:
 			retVal += ", rain(hour) {0:.2f}\"".format(self.rainin)
 		if self.dailyrainin > 0.0:

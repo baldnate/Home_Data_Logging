@@ -84,6 +84,19 @@ def windChill(degF, windMPH):
     else:
         return 35.74 + (0.6215 * degF) - 35.75 * math.pow(windMPH, 0.16) + (0.4275 * degF) * math.pow(windMPH, 0.16)
 
+def temperatureHumidityIndex(degF, rh):
+    """
+    Taken from "A New Empirical Model of the Temperature–Humidity Index" by Carl Schoen
+    http://journals.ametsoc.org/doi/full/10.1175/JAM2285.1
+    >>> round(temperatureHumidityIndex(100, 50))
+    112.0
+    >>> round(temperatureHumidityIndex(80,30))
+    78.0
+    """
+    d = dewpoint(degF, rh)
+    t = degF
+    return t - 0.9971 * math.exp(0.02086 * t) * (1 - math.exp(0.0445 * (d - 57.2)))
+
 def angularMean(angles):
     """
     Formula taken from http://en.wikipedia.org/wiki/Mean_of_circular_quantities
