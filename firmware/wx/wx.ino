@@ -80,9 +80,18 @@ bool Simple_MPL3115A2::readTempAndPressure(float &rtemp, float &rpressure) {
   // The least significant bytes l_altitude and l_temp are 4-bit,
   // fractional values, so you must cast the calulation in (float),
   // shift the value over 4 spots to the right and divide by 16 (since 
-  // there are 16 values in 4-bits). 
+  // there are 16 values in 4-bits).
+  bool negSign = false;
+  if(tmsb > 0x7F) {
+    word foo = 0;
+    foo = ~((tmsb << 8) + tlsb) + 1;  //2’s complement
+    tmsb = foo >> 8;
+    tlsb = foo & 0x00F0; 
+    negSign = true;
+  }
   float templsb = (tlsb >> 4) / 16.0; //temp, fraction of a degree
   rtemp = (float)(tmsb + templsb);
+  if (negSign) rtemp = -rtemp;
   return true;
 }
 
