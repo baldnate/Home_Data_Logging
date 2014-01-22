@@ -13,10 +13,6 @@ host/wx_bridge.py
    * when culling, shift the latest culled sample to the window beginning.
 * posting to wunderground PWS
    * add PWS secrets to secrets file
-* create prefs files for non-secret config
-   * create example prefs and secrets for documentation purposes
-   * scheduling info?
-* consider modularizing once feature set is more stable
 
 host/serial_capture.py
 ----------------------
@@ -55,4 +51,3 @@ non-code
 * improve air flow to enclosure?
 * redo mast and grounding
    * ensure correct orientation and level-ness
-* fool around with antennas to reduce packet loss
