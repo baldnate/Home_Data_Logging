@@ -1,6 +1,5 @@
 # protect the secrets
 secrets.json
-prefs.json
 
 # Joe temp files.  JOE FOREVER
 *~

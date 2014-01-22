@@ -128,15 +128,19 @@ class WindData(object):
 
 
 class WeatherUndergroundData(object):
-	def __init__(self):
-		super(WeatherUndergroundData, self).__init__()
-		self.windData = WindData()     # raw wind samples
-		self.windCurr = WindSpeed()    # instant velocity (wunderground winddir & windspeedmph)
-		self.gustCurr = WindSpeed()    # 30 sec gust (wunderground windgustmph & windgustdir)
-		self.windAvg2m = WindSpeed()   # 2 min avg (wunderground windspdmph_avg2m & winddir_avg2m)
-		self.windGust10m = WindSpeed() # 10 min gust (wunderground windgustmph_10m & windgustdir_10m)
-		self.windAvg15m = WindSpeed()  # 15 min avg (baldwx)
-		self.windGust15m = WindSpeed() # 15 min gust (baldwx)
+	def __init__(self, currInterval, tweetInterval):
+		self.currInterval = currInterval
+		self.maxInterval = max(currInterval, tweetInterval, 120, 600)
+		if tweetInterval:
+			self.tweetInterval = tweetInterval
+		else:
+			self.tweetInterval = self.maxInterval
+		self.windData = WindData()       # raw wind samples
+		self.windCurr = WindSpeed()      # instant velocity (wunderground winddir & windspeedmph)
+		self.gustCurr = WindSpeed()      # 30 sec gust (wunderground windgustmph & windgustdir)
+		self.windAvg2m = WindSpeed()     # 2 min avg (wunderground windspdmph_avg2m & winddir_avg2m)
+		self.windGust10m = WindSpeed()   # 10 min gust (wunderground windgustmph_10m & windgustdir_10m)
+		self.windGustTweet = WindSpeed() # tweet interval gust (baldwx)
 		self.humidity = 0              # humidity in percent
 		self.tempf = 0				   # outdoor temp in degF
 		self.rainin = 0      		   # accumulated rainfall in the last 60 min
@@ -164,21 +168,18 @@ class WeatherUndergroundData(object):
 		self.windData.push(RawWindSample(observation["winddir"], observation["windticks"], now))
 
 		# slice for various time windows
-		data1h = self.windData.timeWindow(60*60)
-		data15m = data1h.timeWindow(15*60)
-		data10m = data15m.timeWindow(10*60)
+		dataTweet = self.windData.timeWindow(self.tweetInterval)
+		dataCurr = self.windData.timeWindow(self.currInterval)
+		data10m = self.windData.timeWindow(10*60)
 		data2m = data10m.timeWindow(2*60)
-		data30s = data2m.timeWindow(30)
 
-		self.windCurr = data30s.avg()
-		self.gustCurr = data30s.gust()
+		self.windCurr = dataCurr.avg()
+		self.gustCurr = dataCurr.gust()
 		self.windAvg2m = data2m.avg()
 		self.windGust10m = data10m.gust()
-		self.windAvg15m = data15m.avg()
-		self.windGust15m = data15m.gust()
-		self.windGust1h = data1h.gust()
+		self.windGustTweet = dataTweet.gust()
 
-		self.windData = data1h # discard data older than we care about
+		self.windData = self.windData.timeWindow(self.maxInterval) # discard data older than we care about
 
 	def pushObservation(self, observation):
 		self.pushWind(observation)
@@ -209,8 +210,6 @@ class WeatherUndergroundData(object):
 		retVal += "gust:         {0}\n".format(self.gustCurr.format())
 		retVal += "2m wind avg:  {0}\n".format(self.windAvg2m.format())
 		retVal += "10m gust:     {0}\n".format(self.windGust10m.format())
-		retVal += "15m wind avg: {0}\n".format(self.windAvg15m.format())
-		retVal += "15m gust:     {0}\n".format(self.windGust15m.format())
 		retVal += "humidity:     {0:.0f}%\n".format(round(self.humidity))
 		retVal += "temp:         {0:.0f}°F\n".format(round(self.tempf))
 		retVal += "hourly rain:  {0:.2f}\"\n".format(self.rainin)
@@ -230,8 +229,8 @@ class WeatherUndergroundData(object):
 			retVal += ", calm"
 		else:
 			retVal += ", wind {0}".format(self.windCurr.tweet())
-		if self.windGust1h.speed > self.windCurr.speed:
-			retVal += " (gust {0})".format(self.windGust1h.tweet())
+		if self.windGustTweet.speed > self.windCurr.speed:
+			retVal += " (gust {0})".format(self.windGustTweet.tweet())
 		if self.rainin > 0.0:
 			retVal += ", rain(hour) {0:.2f}\"".format(self.rainin)
 		if self.dailyrainin > 0.0:
@@ -242,6 +241,7 @@ class WeatherUndergroundData(object):
 ser = None
 
 prefs = json.load(open('prefs.json'))
+debugMode = prefs["DEBUG"] != 0
 
 connected = False
 for serialPort in prefs["SERIAL_PORTS"]:
@@ -256,18 +256,19 @@ if not(connected):
 	print "Could not connect to serial port, check connections and prefs.json[SERIAL_PORTS]."
 	exit(-1)
 
-wud = WeatherUndergroundData()
+reportKey = "REPORT_CFG"
+if debugMode:
+	reportKey = "REPORT_CFG_DEBUG"
+
+tweetInterval = prefs[reportKey]["tweet"]
+consoleInterval = prefs[reportKey]["console"]
+prefill = prefs[reportKey]["prefill"]
+wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
+
 lastTweetTime = lastTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
 lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
-
-# toggles output settings
-debugMode = prefs["DEBUG"] != 0
-
-consoleUpdateInterval = 10 * 60
-if debugMode:
-	consoleUpdateInterval = 15
 
 print "wx_bridge initialized and listening to {0}".format(serialPort)
 
@@ -277,19 +278,20 @@ while True:
 	try:
 		data = json.loads(line)
 	except ValueError, e:
+		print "Malformed packet received, ignoring."
 		continue
 	data['timestamp'] = time
 	wud.pushObservation(data)
 	updates = updates + 1
-	if updates < 9:
+	if updates < prefill:
 		continue
 	if updates % 10 == 0:
 		print "{0:.2f} updates/sec".format(updates/(time - lastTime).total_seconds())	
-	if (time - lastTime).total_seconds() >= consoleUpdateInterval:
+	if (time - lastTime).total_seconds() >= consoleInterval:
 		print wud.tweet()
 		lastTime = time
 		updates = 0
-	if not(debugMode) and (time - lastTweetTime).total_seconds() >= 60 * 60: # once an hour
+	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval:
 		status = wud.tweet()
 		if lastTweetText != status:
 			print "Tweeting..."
@@ -304,6 +306,3 @@ while True:
 			lastTweetTime = time
 		else:
 			print "Not tweeting due to unchanged conditions."
-
-
-

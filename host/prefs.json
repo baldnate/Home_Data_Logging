@@ -1,0 +1,17 @@
+{
+	"SERIAL_PORTS": ["/dev/tty.usbserial-A602ZBVU", "/dev/ttyUSB0"],
+	"WX_ALTITUDE_IN_METERS":  269.933,
+	"DEBUG": 1,
+	"REPORT_CFG": {
+		"curr": 30,
+		"tweet": 3600,
+		"console": 300,
+		"prefill": 100
+	},
+	"REPORT_CFG_DEBUG": {
+		"curr": 15,
+		"tweet": 0,
+		"console": 15,
+		"prefill": 3
+	}
+}
