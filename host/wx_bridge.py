@@ -90,9 +90,9 @@ class WindSpeed(object):
 		if self.isCalm():
 			return "calm"
 		elif self.dir == None:
-			return "{0:.0f} MPH".format(round(self.speed))
+			return "{0:.0f}mph".format(round(self.speed))
 		else:
-			return "{0:.0f} MPH @ {1:.0f}°".format(round(self.speed), round(self.dir))
+			return "{1} {0:.0f}mph".format(round(self.speed), wx_math.degreesToCompass(round(self.dir)))
 
 
 class WindData(object):
@@ -109,12 +109,6 @@ class WindData(object):
 			return WindData([x for x in self.samples if (now - x.time).total_seconds() <= seconds])
 		else:
 			return WindData()
-
-	def curr(self):
-		if len(self.samples) > 1:
-			return WindSpeed(self.samples[0:1])
-		else:
-			return WindSpeed()
 
 	def avg(self):
 		if len(self.samples) > 1:
@@ -176,7 +170,7 @@ class WeatherUndergroundData(object):
 		data2m = data10m.timeWindow(2*60)
 		data30s = data2m.timeWindow(30)
 
-		self.windCurr = data30s.curr()
+		self.windCurr = data30s.avg()
 		self.gustCurr = data30s.gust()
 		self.windAvg2m = data2m.avg()
 		self.windGust10m = data10m.gust()

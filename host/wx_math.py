@@ -120,6 +120,17 @@ def angularMean(angles):
     magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
     return ((360.0 + math.degrees(math.atan2(y, x))) % 360, magnitude)
 
+def degreesToCompass(d):
+    """
+    Takes degrees, returns compass direction.
+    >>> [degreesToCompass(x) for x in [0,20,44,45,46,180,270,290,300,355,360,365]]
+    ['N', 'N', 'NE', 'NE', 'NE', 'S', 'W', 'W', 'NW', 'N', 'N', 'N']
+    """
+    directions = 'N NE E SE S SW W NW'.split()
+    directions *= 3 # no need for modulo later
+    d = (d % 360) + 360 / 16
+    return directions[int(d / 45)]
+
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
