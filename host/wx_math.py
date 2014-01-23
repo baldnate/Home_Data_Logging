@@ -48,10 +48,20 @@ def pascalsToAltSettingInHg(pascals, altitudeInMeters):
     http://www.srh.noaa.gov/images/epz/wxcalc/altimeterSetting.pdf
     >>> round(pascalsToAltSettingInHg(102700, 100) * 100) / 100
     30.68
+    >>> round(pascalsToAltSettingInHg(99577.93, 269.933) * 100) / 100
+    30.35
+    >>> pascalsToAltSettingInHg(0, 269.933) is None
+    True
     """
-    a = (pascals / 100.0) - 0.3 # Pmb - 0.3
+    a = pascalsToMb(pascals) - 0.3 # Pmb - 0.3
     h = altitudeInMeters
-    return mbToInchesHg(math.pow(((h / math.pow(a, 0.190284)) * 0.000084228806861) + 1, 5.255302600323727) * a)
+    if a < 0.0:
+        return None
+    i0 = math.pow(a, 0.190284)
+    i1 = ((h / i0) * 0.000084228806861) + 1
+    i2 = math.pow(i1, 5.255302600323727)
+    i3 = i2 * a
+    return mbToInchesHg(i3)
 
 def dewpoint(degF, rh):
     """
@@ -127,7 +137,7 @@ def degreesToCompass(d):
     ['N', 'N', 'NE', 'NE', 'NE', 'S', 'W', 'W', 'NW', 'N', 'N', 'N']
     """
     directions = 'N NE E SE S SW W NW'.split()
-    directions *= 3 # no need for modulo later
+    directions *= 2 # no need for modulo later
     d = (d % 360) + 360 / 16
     return directions[int(d / 45)]
 
@@ -136,7 +146,7 @@ def degreesToArrow(d):
     Takes degrees, returns unicode arrow for that compass direction.
     """
     directions = "↑ ↗ → ↘ ↓ ↙ ← ↖".split()
-    directions *= 3 # no need for modulo later
+    directions *= 2 # no need for modulo later
     d = (d % 360) + 360 / 16
     return directions[int(d / 45)]
 

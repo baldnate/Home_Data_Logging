@@ -92,7 +92,7 @@ class WindSpeed(object):
 		elif self.dir == None:
 			return "{0:.0f}mph".format(round(self.speed))
 		else:
-			return "{1}{0:.0f}mph".format(round(self.speed), wx_math.degreesToArrow(round(self.dir)))
+			return "{1} @ {0:.0f}mph".format(round(self.speed), wx_math.degreesToCompass(round(self.dir)))
 
 
 class WindData(object):
@@ -189,6 +189,8 @@ class WeatherUndergroundData(object):
 		self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
 		self.windchillf = wx_math.windChill(self.tempf, self.windCurr.speed)
 		self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
+		if self.baromin is None:
+			print "Bogus pressure encountered!  pascals:{0}, alt:{1}".format(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
 		self.indoortempf = observation["indoortempf"]
 		self.lastUpdate = observation["timestamp"]
 
@@ -196,18 +198,19 @@ class WeatherUndergroundData(object):
 		if self.windchillf is not None:
 			wc = round(self.windchillf)
 			if wc < round(self.tempf) - 1:
-				return " (feels like {0:.0f}°F".format(wc)
+				return " (feels like {0:.0f}°F)".format(wc)
 		else:
 			hi = round(self.heatindexf)
 			if hi > round(self.tempf) + 1:
-				return " (feels like {0:.0f}°F".format(hi)
+				return " (feels like {0:.0f}°F)".format(hi)
 		return ""
 
 	def console(self):
 		retVal = self.tweet()
 		retVal += ", {0:.0f}% RH".format(round(self.humidity))
 		retVal += ", {0:.0f}°F DP".format(round(self.dewpointf))
-		retVal += ", {0:.2f}\"Hg".format(self.baromin)
+		if self.baromin is not None:
+			retVal += ", {0:.2f}\"Hg".format(self.baromin)
 		retVal += ", {0:.0f}°F indoor".format(round(self.indoortempf))
 		retVal += ", gCur {0}".format(self.gustCurr.tweet())
 		retVal += ", avg2m {0}".format(self.windAvg2m.tweet())
@@ -295,7 +298,7 @@ while True:
 				twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
 				twitter.update_status(status=status)
 				print "Tweet successful"
-			except twython.exceptions.TwythonError as e:
+			except TwythonError as e:
 				print "Got exception:\n{0}".format(str(e))
 				# Twitter API returned a 503 (Service Unavailable), Over capacity
 				# ^^^ retry
