@@ -195,7 +195,7 @@ class WeatherUndergroundData(object):
 	def formatApparentTemperature(self):
 		if self.windchillf is not None:
 			wc = round(self.windchillf)
-			if wc > round(self.tempf) - 1:
+			if wc < round(self.tempf) - 1:
 				return " (feels like {0:.0f}°F".format(wc)
 		else:
 			hi = round(self.heatindexf)
@@ -203,28 +203,21 @@ class WeatherUndergroundData(object):
 				return " (feels like {0:.0f}°F".format(hi)
 		return ""
 
-	def format(self):
-		retVal = ""
-		retVal += "dateutc:      {0}\n".format(self.lastUpdate.isoformat(' '))
-		retVal += "wind:         {0}\n".format(self.windCurr.format())
-		retVal += "gust:         {0}\n".format(self.gustCurr.format())
-		retVal += "2m wind avg:  {0}\n".format(self.windAvg2m.format())
-		retVal += "10m gust:     {0}\n".format(self.windGust10m.format())
-		retVal += "humidity:     {0:.0f}%\n".format(round(self.humidity))
-		retVal += "temp:         {0:.0f}°F\n".format(round(self.tempf))
-		retVal += "hourly rain:  {0:.2f}\"\n".format(self.rainin)
-		retVal += "daily rain:   {0:.2f}\"\n".format(self.dailyrainin)
-		retVal += "pressure:     {0:.1f} Pa\n".format(self.baromin)
-		retVal += "indoor temp:  {0:.0f}°F\n".format(round(self.indoortempf))
+	def console(self):
+		retVal = self.tweet()
+		retVal += ", {0:.0f}% RH".format(round(self.humidity))
+		retVal += ", {0:.0f}°F DP".format(round(self.dewpointf))
+		retVal += ", {0:.2f}\"Hg".format(self.baromin)
+		retVal += ", {0:.0f}°F indoor".format(round(self.indoortempf))
+		retVal += ", gCur {0}".format(self.gustCurr.tweet())
+		retVal += ", avg2m {0}".format(self.windAvg2m.tweet())
+		retVal += ", g10m {0}".format(self.windGust10m.tweet())
 		return retVal
 
 	def tweet(self):
 		retVal = ""
 		retVal += "{0:.0f}°F".format(round(self.tempf))
 		retVal += self.formatApparentTemperature()
-		retVal += ", {0:.0f}%RH".format(round(self.humidity))
-		retVal += ", {0:.0f}dew°F".format(round(self.dewpointf))
-		retVal += ", {0:.2f}\"Hg".format(self.baromin)
 		if self.windCurr.isCalm():
 			retVal += ", calm"
 		else:
@@ -292,7 +285,7 @@ while True:
 		updates = 0
 		lastUpdateRateTime = time
 	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
-		print wud.tweet()
+		print wud.console()
 		lastConsoleTime = time
 	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval:
 		status = wud.tweet()
