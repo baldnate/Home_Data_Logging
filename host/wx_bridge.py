@@ -92,7 +92,7 @@ class WindSpeed(object):
 		elif self.dir == None:
 			return "{0:.0f}mph".format(round(self.speed))
 		else:
-			return "{1} {0:.0f}mph".format(round(self.speed), wx_math.degreesToCompass(round(self.dir)))
+			return "{1}{0:.0f}mph".format(round(self.speed), wx_math.degreesToArrow(round(self.dir)))
 
 
 class WindData(object):
@@ -265,7 +265,8 @@ consoleInterval = prefs[reportKey]["console"]
 prefill = prefs[reportKey]["prefill"]
 wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
 
-lastTweetTime = lastTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
+lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
+lastUpdateRateTime = datetime.datetime.utcnow()
 lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
@@ -283,14 +284,16 @@ while True:
 	data['timestamp'] = time
 	wud.pushObservation(data)
 	updates = updates + 1
-	if updates < prefill:
+	if prefill:
+		prefill -= 1
 		continue
-	if updates % 10 == 0:
-		print "{0:.2f} updates/sec".format(updates/(time - lastTime).total_seconds())	
-	if (time - lastTime).total_seconds() >= consoleInterval:
-		print wud.tweet()
-		lastTime = time
+	if updates % 20 == 0:
+		print "{0:.2f} updates/sec".format(updates/(time - lastUpdateRateTime).total_seconds())	
 		updates = 0
+		lastUpdateRateTime = time
+	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
+		print wud.tweet()
+		lastConsoleTime = time
 	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval:
 		status = wud.tweet()
 		if lastTweetText != status:
