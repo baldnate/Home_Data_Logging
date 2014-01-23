@@ -187,7 +187,7 @@ class WeatherUndergroundData(object):
 		self.tempf = observation["tempf"]
 		self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
 		self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
-		self.windchillf = wx_math.windChill(self.tempf, self.windCurr.speed)
+		self.windchillf = wx_math.windChill(self.tempf, self.windAvg2m.speed)
 		self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
 		if self.baromin is None:
 			print "Bogus pressure encountered!  pascals:{0}, alt:{1}".format(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
@@ -212,8 +212,8 @@ class WeatherUndergroundData(object):
 		if self.baromin is not None:
 			retVal += ", {0:.2f}\"Hg".format(self.baromin)
 		retVal += ", {0:.0f}°F indoor".format(round(self.indoortempf))
+		retVal += ", wCur {0}".format(self.windCurr.tweet())
 		retVal += ", gCur {0}".format(self.gustCurr.tweet())
-		retVal += ", avg2m {0}".format(self.windAvg2m.tweet())
 		retVal += ", g10m {0}".format(self.windGust10m.tweet())
 		return retVal
 
@@ -221,10 +221,10 @@ class WeatherUndergroundData(object):
 		retVal = ""
 		retVal += "{0:.0f}°F".format(round(self.tempf))
 		retVal += self.formatApparentTemperature()
-		if self.windCurr.isCalm():
+		if self.windAvg2m.isCalm():
 			retVal += ", calm"
 		else:
-			retVal += ", wind {0}".format(self.windCurr.tweet())
+			retVal += ", wind {0}".format(self.windAvg2m.tweet())
 		if self.windGustTweet.speed > self.windCurr.speed:
 			retVal += " (gust {0})".format(self.windGustTweet.tweet())
 		if self.rainin > 0.0:
