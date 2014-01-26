@@ -84,7 +84,8 @@ class WindSpeed(object):
 		return self
 	
 	def isCalm(self):
-		return round(self.speed) == 0
+		# According to section 2-6-5 of http://www.faa.gov/air_traffic/publications/atpubs/atc/atc0206.html
+		return round(self.speed) < 3
 
 	def tweet(self):
 		if self.isCalm():
@@ -198,41 +199,51 @@ class WeatherUndergroundData(object):
 		if self.windchillf is not None:
 			wc = round(self.windchillf)
 			if wc < round(self.tempf) - 1:
-				return " (feels like {0:.0f}°F)".format(wc)
+				return " (WC {0:.0f}°F)".format(wc)
 		else:
 			hi = round(self.heatindexf)
 			if hi > round(self.tempf) + 1:
-				return " (feels like {0:.0f}°F)".format(hi)
-		return ""
+				return " (HI {0:.0f}°F)".format(hi)
+		return None
 
 	def console(self):
 		retVal = self.tweet()
-		retVal += ", {0:.0f}% RH".format(round(self.humidity))
-		retVal += ", {0:.0f}°F DP".format(round(self.dewpointf))
-		if self.baromin is not None:
-			retVal += ", {0:.2f}\"Hg".format(self.baromin)
-		retVal += ", {0:.0f}°F indoor".format(round(self.indoortempf))
-		retVal += ", wCur {0}".format(self.windCurr.tweet())
-		retVal += ", gCur {0}".format(self.gustCurr.tweet())
-		retVal += ", g10m {0}".format(self.windGust10m.tweet())
+		retVal.append("{0:.0f}% RH".format(round(self.humidity)))
+		retVal.append("{0:.0f}°F DP".format(round(self.dewpointf)))
+		if self.baromin is None:
+			retVal.append(None)
+		else:
+			retVal.append("{0:.2f}\"Hg".format(self.baromin))
+		retVal.append("{0:.0f}°F indoor".format(round(self.indoortempf)))
+		retVal.append("wCur {0}".format(self.windCurr.tweet()))
+		retVal.append("gCur {0}".format(self.gustCurr.tweet()))
+		retVal.append("g10m {0}".format(self.windGust10m.tweet()))
 		return retVal
+
+	def formatWindGust(self):
+		wind = self.windAvg2m
+		gust = self.windGustTweet
+		if wind.isCalm() and gust.speed < 5:
+			return "calm"
+		else:
+			if round(gust.speed) > round(wind.speed):
+				return "wind {0} (gust {1})".format(self.windAvg2m.tweet(), self.windGustTweet.tweet())
+			else:
+				return "wind {0}".format(self.windAvg2m.tweet())
+
+	def formatRain(self, tag, value):
+		if value < 0.01:
+			return None
+		return "rain({0}) {1:.2f}\"".format(tag, value)
 
 	def tweet(self):
-		retVal = ""
-		retVal += "{0:.0f}°F".format(round(self.tempf))
-		retVal += self.formatApparentTemperature()
-		if self.windAvg2m.isCalm():
-			retVal += ", calm"
-		else:
-			retVal += ", wind {0}".format(self.windAvg2m.tweet())
-		if self.windGustTweet.speed > self.windCurr.speed:
-			retVal += " (gust {0})".format(self.windGustTweet.tweet())
-		if self.rainin > 0.0:
-			retVal += ", rain(hour) {0:.2f}\"".format(self.rainin)
-		if self.dailyrainin > 0.0:
-			retVal += ", rain(today) {0:.2f}\"".format(self.dailyrainin)
+		retVal = []
+		retVal.append("{0:.0f}°F".format(round(self.tempf)))
+		retVal.append(self.formatApparentTemperature())
+		retVal.append(self.formatWindGust())
+		retVal.append(self.formatRain("hour", self.rainin))
+		retVal.append(self.formatRain("today", self.dailyrainin))
 		return retVal
-
 
 ser = None
 
@@ -288,10 +299,10 @@ while True:
 		updates = 0
 		lastUpdateRateTime = time
 	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
-		print wud.console()
+		print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
 		lastConsoleTime = time
 	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval:
-		status = wud.tweet()
+		status = ", ".join([x for x in wud.tweet() if x is not None])
 		if lastTweetText != status:
 			print "Tweeting..."
 			try:
