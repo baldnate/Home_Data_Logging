@@ -19,6 +19,7 @@ import datetime
 import math
 import wx_math
 from ez_tweet import EZTweet
+from wx_pws import WundergroundPWS
 
 class RawRainSample(object):
 	def __init__(self, ticks, time):
@@ -58,8 +59,9 @@ class RawWindSample(object):
 class WindSpeed(object):
 	def __init__(self, samples=None):
 		if samples == None:
+			self.pwsspeed = 0
 			self.speed = 0.0
-			self.dir = None
+			self.pwsdir = self.dir = None
 			self.time = datetime.datetime.utcnow()
 		else:
 			deltaTime = samples[0].time - samples[-1].time
@@ -74,6 +76,8 @@ class WindSpeed(object):
 			else:
 				self.dir = None
 			self.time = samples[0].time
+			self.pwsspeed = int(round(self.speed))
+			self.pwsdir = None if self.dir is None else int(round(self.dir))
 
 
 	def returnGreater(self, x):
@@ -85,7 +89,7 @@ class WindSpeed(object):
 	
 	def isCalm(self):
 		# According to section 2-6-5 of http://www.faa.gov/air_traffic/publications/atpubs/atc/atc0206.html
-		return round(self.speed) < 3
+		return self.pwsspeed < 3
 
 	def tweet(self):
 		if self.isCalm():
@@ -148,7 +152,35 @@ class WeatherUndergroundData(object):
 		self.dailyrainin = 0           # rain inches so far today (local time)
 		self.baromin = 0               # barometric pressure inches (altimeter setting)
 		self.indoortempf = 0           # indoor temp in degF
+		self.dewpointf = 0 			   # dewpoint in degF
+		self.heatindexf = 0
+		self.windchillf = 0
+
 		self.lastUpdate = datetime.datetime.utcnow()
+
+	def updatePWS(self, pws):
+		pws.update(
+			action = 'updateraw',
+			ID = 'XXXXX',
+			PASSWORD = 'XXXXX',
+			softwaretype = 'baldwx',
+
+			dateutc = self.lastUpdate.strftime("%Y-%m-%d %H:%M:%S"),
+			tempf = '%.1f' % self.tempf,
+			windspeedmph = self.windCurr.pwsspeed,
+			winddir = self.windCurr.pwsdir,
+			windgustmph = self.gustCurr.pwsspeed,
+			windgustdir = self.gustCurr.pwsdir,
+			windspdmph_avg2m  = self.windAvg2m.pwsspeed,
+			winddir_avg2m = self.windAvg2m.pwsdir,
+			windgustmph_10m = self.windGust10m.pwsspeed,
+			windgustdir_10m = self.windGust10m.pwsdir,
+			humidity = int(round(self.humidity)),
+			dewptf = '%.1f' % self.dewpointf,
+			rainin = '%.3f' % self.rainin,
+			dailyrainin = '%.3f' % self.dailyrainin,
+			baromin = '%.2f' % self.baromin
+		)
 
 	def pushRain(self, observation):
 		now = observation["timestamp"]
@@ -280,6 +312,7 @@ updates = 0
 secrets = json.load(open('secrets.json'))
 
 twitter = EZTweet(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
+pws = WundergroundPWS()
 
 print "wx_bridge initialized and listening to {0}".format(serialPort)
 
@@ -303,6 +336,7 @@ while True:
 		lastUpdateRateTime = time
 	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
 		print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
+		#wud.updatePWS(pws)
 		lastConsoleTime = time
 	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
 		status = ", ".join([x for x in wud.tweet() if x is not None])
