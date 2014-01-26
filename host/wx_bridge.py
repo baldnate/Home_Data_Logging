@@ -18,7 +18,7 @@ import json
 import datetime
 import math
 import wx_math
-from twython import Twython
+from ez_tweet import EZTweet
 
 class RawRainSample(object):
 	def __init__(self, ticks, time):
@@ -274,9 +274,12 @@ wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
 
 lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
 lastUpdateRateTime = datetime.datetime.utcnow()
+tweetRetryDelay = 0
 lastTweetText = ""
 updates = 0
 secrets = json.load(open('secrets.json'))
+
+twitter = EZTweet(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
 
 print "wx_bridge initialized and listening to {0}".format(serialPort)
 
@@ -301,18 +304,13 @@ while True:
 	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
 		print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
 		lastConsoleTime = time
-	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval:
+	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
 		status = ", ".join([x for x in wud.tweet() if x is not None])
-		if lastTweetText != status:
-			print "Tweeting..."
-			try:
-				twitter = Twython(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
-				twitter.update_status(status=status)
-				print "Tweet successful"
-			except TwythonError as e:
-				print "Got exception:\n{0}".format(str(e))
-				# Twitter API returned a 503 (Service Unavailable), Over capacity
-				# ^^^ retry
+		print "Tweeting: %s" % status
+		retryTime = twitter.tweet(status)
+		if retryTime == -1:
 			lastTweetTime = time
+			tweetRetryDelay = 0
 		else:
-			print "Not tweeting due to unchanged conditions."
+			print "Tweet failed.  Next attempt in %i seconds" % retryTime
+			tweetRetryDelay += retryTime
