@@ -6,6 +6,7 @@
 
 import math
 
+
 def cToF(degC):
     """
     Convert temperature from °C to °F 
@@ -15,6 +16,7 @@ def cToF(degC):
     32.0
     """
     return (degC * 9.0) / 5.0 + 32.0
+
 
 def fToC(degF):
     """
@@ -26,6 +28,7 @@ def fToC(degF):
     """
     return (degF - 32.0) * 5.0 / 9.0
 
+
 def pascalsToMb(pascals):
     """
     Converts pascals to millibar
@@ -34,6 +37,7 @@ def pascalsToMb(pascals):
     """
     return pascals / 100.0
 
+
 def mbToInchesHg(mb):
     """
     Converts millibar to inches of Hg (http://www.lamons.com/public/pdf/engineering/PressureConversionFormulas.pdf)
@@ -41,6 +45,7 @@ def mbToInchesHg(mb):
     6.0
     """
     return 0.02953 * mb
+
 
 def pascalsToAltSettingInHg(pascals, altitudeInMeters):
     """
@@ -53,7 +58,7 @@ def pascalsToAltSettingInHg(pascals, altitudeInMeters):
     >>> pascalsToAltSettingInHg(0, 269.933) is None
     True
     """
-    a = pascalsToMb(pascals) - 0.3 # Pmb - 0.3
+    a = pascalsToMb(pascals) - 0.3  # Pmb - 0.3
     h = altitudeInMeters
     if a < 0.0:
         return None
@@ -62,6 +67,7 @@ def pascalsToAltSettingInHg(pascals, altitudeInMeters):
     i2 = math.pow(i1, 5.255302600323727)
     i3 = i2 * a
     return mbToInchesHg(i3)
+
 
 def dewpoint(degF, rh):
     """
@@ -73,6 +79,7 @@ def dewpoint(degF, rh):
     tempC = fToC(degF)
     b = (math.log(rh / 100.0) + ((17.27 * tempC) / (237.3 + tempC))) / 17.27
     return cToF((237.3 * b) / (1.0 - b))
+
 
 def windChill(degF, windMPH):
     """
@@ -94,6 +101,7 @@ def windChill(degF, windMPH):
     else:
         return 35.74 + (0.6215 * degF) - 35.75 * math.pow(windMPH, 0.16) + (0.4275 * degF) * math.pow(windMPH, 0.16)
 
+
 def temperatureHumidityIndex(degF, rh):
     """
     Taken from "A New Empirical Model of the Temperature–Humidity Index" by Carl Schoen
@@ -106,6 +114,7 @@ def temperatureHumidityIndex(degF, rh):
     d = dewpoint(degF, rh)
     t = degF
     return t - 0.9971 * math.exp(0.02086 * t) * (1 - math.exp(0.0445 * (d - 57.2)))
+
 
 def angularMean(angles):
     """
@@ -130,6 +139,7 @@ def angularMean(angles):
     magnitude = math.sqrt(math.pow(x, 2) + math.pow(y, 2))
     return ((360.0 + math.degrees(math.atan2(y, x))) % 360, magnitude)
 
+
 def degreesToCompass(d):
     """
     Takes degrees, returns compass direction.
@@ -137,16 +147,17 @@ def degreesToCompass(d):
     ['N', 'N', 'NE', 'NE', 'NE', 'S', 'W', 'W', 'NW', 'N', 'N', 'N']
     """
     directions = 'N NE E SE S SW W NW'.split()
-    directions *= 2 # no need for modulo later
+    directions *= 2  # no need for modulo later
     d = (d % 360) + 360 / 16
     return directions[int(d / 45)]
+
 
 def degreesToArrow(d):
     """
     Takes degrees, returns unicode arrow for that compass direction.
     """
     directions = "↑ ↗ → ↘ ↓ ↙ ← ↖".split()
-    directions *= 2 # no need for modulo later
+    directions *= 2  # no need for modulo later
     d = (d % 360) + 360 / 16
     return directions[int(d / 45)]
 
