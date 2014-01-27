@@ -8,9 +8,6 @@ Big issues
 	* see http://www.youtube.com/watch?v=KOBt7sxtx0Y for a good shield design
 	* add external probe if needed
 * Also, the temp sensors were already 2 degrees apart.
-* Wind/rain counters have rollover bugs
-* Trace rain gets missed due to tick events being longer than 1 day apart
-   * when culling, shift the latest culled sample to the window beginning.
 * Add all the sensors to wx.ino's output, even if they seem useless or low quality.
 	* retrofit ear.ino once wx node is updated with new data
 * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
