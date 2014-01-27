@@ -5,26 +5,19 @@ host/wx_bridge.py
 -----------------
 
 * wind rollover bug needs fixing
-* implement non-numeric reports (rain == trace, etc.)
-* shift from time based tweeting to interesting condition change based tweeting
-* add summary tweets?  overnight low, gust of the day, etc.
+* trace rain gets missed due to tick events being longer than 1 day apart
+   * when culling, shift the latest culled sample to the window beginning.
 * rain/wind data compression:
    * elide points that contain no new data (i.e.: more recent timestamp, same number of ticks and direction)
-   * when culling, shift the latest culled sample to the window beginning.
-* posting to wunderground PWS
-   * add PWS secrets to secrets file
+* add PWS secrets to secrets file
+* shift from time based tweeting to interesting condition change based tweeting
+* add summary tweets?  overnight low, gust of the day, etc.
 
 host/serial_capture.py
 ----------------------
 
 * parameterize serial port
 * add banner
-
-host/send_tweet.py
-------------------
-
-* modularize
-* retrofit wx_bridge to use this instead of just rolling its own
 
 documentation/*
 ---------------
@@ -37,7 +30,6 @@ firmware/wx/wx.ino
 * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
 * Add all the sensors to the output, even if they seem useless or low quality.
 * modularize the parts that seem stable
-* capture fastest wind impulse (shortest tick to tick time) to better capture gusts when packet loss is high
 
 firmware/ear/ear.ino
 --------------------
@@ -47,7 +39,7 @@ firmware/ear/ear.ino
 non-code
 --------
 
-* add external probe? (https://www.sparkfun.com/products/11050)
-* improve air flow to enclosure?
+* test/add external probe
+* build better enclosure (see http://www.youtube.com/watch?v=KOBt7sxtx0Y)
 * redo mast and grounding
    * ensure correct orientation and level-ness
