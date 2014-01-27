@@ -248,11 +248,11 @@ class WeatherUndergroundData(object):
 		if self.windchillf is not None:
 			wc = round(self.windchillf)
 			if wc < round(self.tempf) - 1:
-				return " (WC {0:.0f}°F)".format(wc)
+				return "wind chill {0:.0f}°F".format(wc)
 		else:
 			hi = round(self.heatindexf)
 			if hi > round(self.tempf) + 1:
-				return " (HI {0:.0f}°F)".format(hi)
+				return "heat index {0:.0f}°F".format(hi)
 		return None
 
 	def console(self):
