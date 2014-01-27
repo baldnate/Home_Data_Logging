@@ -175,11 +175,6 @@ class WeatherUndergroundData(object):
 
 	def updatePWS(self, pws):
 		pws.update(
-			action = 'updateraw',
-			ID = 'XXXXX',
-			PASSWORD = 'XXXXX',
-			softwaretype = 'baldwx',
-
 			dateutc = self.lastUpdate.strftime("%Y-%m-%d %H:%M:%S"),
 			tempf = '%.1f' % self.tempf,
 			indoortempf = '%.1f' % self.indoortempf,
@@ -293,74 +288,88 @@ class WeatherUndergroundData(object):
 		retVal.append(self.formatRain("today", self.dailyrainin))
 		return retVal
 
-ser = None
+if __name__ == "__main__":
+	import argparse
+ 	parser = argparse.ArgumentParser(description='wx_bridge')
+	parser.add_argument('-t','--doctest', help='Run doctests',required=False, action="store_true")
+	parser.add_argument('-d','--debug', help='Run in debug mode', required=False, action="store_true")
+	args = parser.parse_args()
 
-prefs = json.load(open('prefs.json'))
-debugMode = prefs["DEBUG"] != 0
+	if args.doctest:
+		import doctest
+		doctest.testmod()
+		exit()
 
-connected = False
-for serialPort in prefs["SERIAL_PORTS"]:
-	try:
-		ser = serial.Serial(serialPort, 115200)
-		connected = True
-		break
-	except:
-		continue
+	debugMode = args.debug
 
-if not(connected):
-	print "Could not connect to serial port, check connections and prefs.json[SERIAL_PORTS]."
-	exit(-1)
+	prefs = json.load(open('prefs.json'))
 
-reportKey = "REPORT_CFG"
-if debugMode:
-	reportKey = "REPORT_CFG_DEBUG"
+	ser = None
+	connected = False
+	for serialPort in prefs["SERIAL_PORTS"]:
+		try:
+			ser = serial.Serial(serialPort, 115200)
+			connected = True
+			break
+		except:
+			continue
 
-tweetInterval = prefs[reportKey]["tweet"]
-consoleInterval = prefs[reportKey]["console"]
-prefill = prefs[reportKey]["prefill"]
-wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
+	if not(connected):
+		print "Could not connect to serial port, check connections and prefs.json[SERIAL_PORTS]."
+		exit(-1)
 
-lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
-lastUpdateRateTime = datetime.datetime.utcnow()
-tweetRetryDelay = 0
-lastTweetText = ""
-updates = 0
-secrets = json.load(open('secrets.json'))
+	reportKey = "REPORT_CFG"
+	if debugMode:
+		reportKey = "REPORT_CFG_DEBUG"
 
-twitter = EZTweet(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
-pws = WundergroundPWS()
+	tweetInterval = prefs[reportKey]["tweet"]
+	consoleInterval = prefs[reportKey]["console"]
+	prefill = prefs[reportKey]["prefill"]
+	wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
 
-print "wx_bridge initialized and listening to {0}".format(serialPort)
+	lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1) # one day ago, to trigger an immediate update
+	lastUpdateRateTime = datetime.datetime.utcnow()
+	tweetRetryDelay = 0
+	lastTweetText = ""
+	updates = 0
+	secrets = json.load(open('secrets.json'))
 
-while True:
-	line = ser.readline()
-	time = datetime.datetime.utcnow()
-	try:
-		data = json.loads(line)
-	except ValueError, e:
-		print "Malformed packet received, ignoring."
-		continue
-	data['timestamp'] = time
-	wud.pushObservation(data)
-	updates = updates + 1
-	if prefill:
-		prefill -= 1
-		continue
-	if updates % 20 == 0:
-		print "{0:.2f} updates/sec".format(updates/(time - lastUpdateRateTime).total_seconds())	
-		updates = 0
-		lastUpdateRateTime = time
-	if (time - lastConsoleTime).total_seconds() >= consoleInterval:
-		print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
-		#wud.updatePWS(pws)
-		lastConsoleTime = time
-	if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
-		status = ", ".join([x for x in wud.tweet() if x is not None])
-		print "Tweeting: %s" % status
-		retryTime = twitter.tweet(status)
-		if retryTime == -1:
-			lastTweetTime = time
-			tweetRetryDelay = 0
-		else:
-			print "Tweet failed.  Next attempt in %i seconds" % retryTime
-			tweetRetryDelay += retryTime
+	twitter = EZTweet(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
+	pws = WundergroundPWS(secrets['PWS_ID'], secrets['PWS_PASSWORD'])
+
+	print "wx_bridge initialized and listening to {0}".format(serialPort)
+	if debugMode:
+		print "debugging mode ON"
+
+	while True:
+		line = ser.readline()
+		time = datetime.datetime.utcnow()
+		try:
+			data = json.loads(line)
+		except ValueError, e:
+			print "Malformed packet received, ignoring."
+			continue
+		data['timestamp'] = time
+		wud.pushObservation(data)
+		updates = updates + 1
+		if prefill:
+			prefill -= 1
+			continue
+		if updates % 20 == 0:
+			print "{0:.2f} updates/sec".format(updates/(time - lastUpdateRateTime).total_seconds())	
+			updates = 0
+			lastUpdateRateTime = time
+		if (time - lastConsoleTime).total_seconds() >= consoleInterval:
+			print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
+			#wud.updatePWS(pws)
+			lastConsoleTime = time
+		if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
+			status = ", ".join([x for x in wud.tweet() if x is not None])
+			print "Tweeting: %s" % status
+			retryTime = twitter.tweet(status)
+			if retryTime == -1:
+				lastTweetTime = time
+				tweetRetryDelay = 0
+			else:
+				print "Tweet failed.  Next attempt in %i seconds" % retryTime
+				tweetRetryDelay += retryTime

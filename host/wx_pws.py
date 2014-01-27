@@ -7,11 +7,20 @@ import urllib
 
 class WundergroundPWS(object):
 	"""docstring for WundergroundPWS"""
-	def __init__(self):
+	def __init__(self, account, password):
 		super(WundergroundPWS, self).__init__()
+		self.stock = {
+			'action': 'updateraw',
+			'softwaretype': 'baldwx'
+		}
+		self.secrets = {
+			'ID': account,
+			'PASSWORD': password
+		}
 
 	def update(self, **kwargs):
-		args = dict((k, v) for k, v in kwargs.iteritems() if v is not None)
+		obs = dict((k, v) for k, v in kwargs.iteritems() if v is not None)
+		args = dict(obs.items() + stock.items() + secrets.items())
 		params = urllib.urlencode(args)
 		f = urllib.urlopen("http://weatherstation.wunderground.com/weatherstation/updateweatherstation.php?%s" % params)
 		result = f.read()
@@ -23,5 +32,3 @@ class WundergroundPWS(object):
 if __name__ == "__main__":
 	import doctest
 	doctest.testmod()
-
-	
