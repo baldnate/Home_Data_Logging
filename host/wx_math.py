@@ -9,7 +9,7 @@ import math
 
 def cToF(degC):
     """
-    Convert temperature from °C to °F 
+    Convert temperature from °C to °F
     >>> cToF(100)
     212.0
     >>> cToF(0)
@@ -20,7 +20,7 @@ def cToF(degC):
 
 def fToC(degF):
     """
-    Convert temperature from °F to °C 
+    Convert temperature from °F to °C
     >>> fToC(212)
     100.0
     >>> fToC(32)
