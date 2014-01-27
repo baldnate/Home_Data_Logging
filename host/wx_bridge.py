@@ -20,6 +20,32 @@ import math
 import wx_math
 from ez_tweet import EZTweet
 from wx_pws import WundergroundPWS
+from copy import copy
+
+def timeWindow(samples, time):
+	"""
+	return culled list of just what has happened in the last <time> seconds
+	"""
+
+	if not samples:
+		return []
+
+	if len(samples) == 1:
+		return samples
+
+	now = samples[0].time
+	i = 1
+	while i < len(samples) and (now - samples[i].time).total_seconds() < time:
+		i += 1
+
+	# at this point, i is pointing just after the last item in the window.
+	if i >= len(samples):
+		return samples
+	else:
+		nextLastSample = copy(samples[i])
+		nextLastSample.time = now - datetime.timedelta(seconds=time)
+		return samples[0:i-1].append(nextLastSample)
+
 
 class RawRainSample(object):
 	def __init__(self, ticks, time):
@@ -34,12 +60,7 @@ class RainData(object):
 		self.samples.insert(0, sample)
 
 	def timeWindow(self, seconds):
-		# return culled list of just what has happened in the last <seconds> seconds
-		if len(self.samples) > 0:
-			now = self.samples[0].time
-			return RainData([x for x in self.samples if (now - x.time).total_seconds() <= seconds])
-		else:
-			return RainData()
+		return RainData(timeWindow(self.samples, seconds))
 
 	def rainfall(self):
 		if len(self.samples) > 1:
@@ -57,7 +78,7 @@ class RawWindSample(object):
 
 
 class WindSpeed(object):
-	def __init__(self, samples=None):
+	def __init__(self, samples=[]):
 		if not samples:
 			self.pwsspeed = 0
 			self.speed = 0.0
@@ -108,22 +129,17 @@ class WindData(object):
 		self.samples.insert(0, sample)
 
 	def timeWindow(self, seconds):
-		# return culled list of just what has happened in the last <seconds> seconds
-		if len(self.samples) > 0:
-			now = self.samples[0].time
-			return WindData([x for x in self.samples if (now - x.time).total_seconds() <= seconds])
-		else:
-			return WindData()
+		return WindData(timeWindow(self.samples, seconds))
 
-	def avg(self):
-		if len(self.samples) > 1:
+	def avg(self):			
+		if self.samples and len(self.samples) > 1:
 			return WindSpeed(self.samples)
 		else:
 			return WindSpeed()
 
 	def gust(self):
 		max = WindSpeed()
-		if len(self.samples) > 0:
+		if self.samples:
 			newerSample = self.samples[0]
 			for olderSample in self.samples[1:]:
 				max = max.returnGreater(WindSpeed([newerSample, olderSample]))
