@@ -58,7 +58,7 @@ class RawWindSample(object):
 
 class WindSpeed(object):
 	def __init__(self, samples=None):
-		if samples == None:
+		if not samples:
 			self.pwsspeed = 0
 			self.speed = 0.0
 			self.pwsdir = self.dir = None
