@@ -44,7 +44,9 @@ def timeWindow(samples, time):
 	else:
 		nextLastSample = copy(samples[i])
 		nextLastSample.time = now - datetime.timedelta(seconds=time)
-		return samples[0:i-1].append(nextLastSample)
+		retVal = samples[0:i-1]
+		retVal.append(nextLastSample)
+		return retVal
 
 def tickDelta(tickbig, ticksmall, maxticks):
 	if tickbig >= ticksmall:
