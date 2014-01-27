@@ -91,10 +91,10 @@ class WindSpeed(object):
 		# According to section 2-6-5 of http://www.faa.gov/air_traffic/publications/atpubs/atc/atc0206.html
 		return self.pwsspeed < 3
 
-	def tweet(self):
+	def tweet(self, showDir = True):
 		if self.isCalm():
 			return "calm"
-		elif self.dir == None:
+		elif self.dir == None or not showDir:
 			return "{0:.0f}mph".format(round(self.speed))
 		else:
 			return "{1} @ {0:.0f}mph".format(round(self.speed), wx_math.degreesToCompass(round(self.dir)))
@@ -128,7 +128,6 @@ class WindData(object):
 			for olderSample in self.samples[1:]:
 				max = max.returnGreater(WindSpeed([newerSample, olderSample]))
 				newerSample = olderSample
-		max.dir = None
 		return max
 
 
@@ -260,7 +259,7 @@ class WeatherUndergroundData(object):
 			return "calm"
 		else:
 			if round(gust.speed) > round(wind.speed):
-				return "wind {0} (gust {1})".format(self.windAvg2m.tweet(), self.windGustTweet.tweet())
+				return "wind {0} (gust {1})".format(self.windAvg2m.tweet(), self.windGustTweet.tweet(False))
 			else:
 				return "wind {0}".format(self.windAvg2m.tweet())
 
