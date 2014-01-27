@@ -46,6 +46,11 @@ def timeWindow(samples, time):
 		nextLastSample.time = now - datetime.timedelta(seconds=time)
 		return samples[0:i-1].append(nextLastSample)
 
+def tickDelta(tickbig, ticksmall, maxticks):
+	if tickbig >= ticksmall:
+		return tickbig - ticksmall
+	else:
+		return (maxticks - ticksmall + 1) + tickbig
 
 class RawRainSample(object):
 	def __init__(self, ticks, time):
@@ -55,6 +60,7 @@ class RawRainSample(object):
 class RainData(object):
 	def __init__(self, samples=[]):
 		self.samples = samples
+		self.MAXTICKS = 65535
 
 	def push(self, sample):
 		self.samples.insert(0, sample)
@@ -64,7 +70,7 @@ class RainData(object):
 
 	def rainfall(self):
 		if len(self.samples) > 1:
-			return (self.samples[0].ticks - self.samples[-1].ticks) * 0.011
+			return tickDelta(self.samples[0].ticks, self.samples[-1].ticks, self.MAXTICKS) * 0.011
 		else:
 			return 0
 
@@ -79,6 +85,7 @@ class RawWindSample(object):
 
 class WindSpeed(object):
 	def __init__(self, samples=[]):
+		MAXTICKS = 4294967295
 		if not samples:
 			self.pwsspeed = 0
 			self.speed = 0.0
@@ -86,7 +93,7 @@ class WindSpeed(object):
 			self.time = datetime.datetime.utcnow()
 		else:
 			deltaTime = samples[0].time - samples[-1].time
-			deltaTicks = samples[0].ticks - samples[-1].ticks
+			deltaTicks = tickDelta(samples[0].ticks, samples[-1].ticks, MAXTICKS)
 			if deltaTime:
 				self.speed = deltaTicks / deltaTime.total_seconds() * 1.492
 			else:
@@ -99,7 +106,6 @@ class WindSpeed(object):
 			self.time = samples[0].time
 			self.pwsspeed = int(round(self.speed))
 			self.pwsdir = None if self.dir is None else int(round(self.dir))
-
 
 	def returnGreater(self, x):
 		if x.speed > self.speed:
