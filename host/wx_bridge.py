@@ -167,6 +167,7 @@ class WeatherUndergroundData(object):
 
 			dateutc = self.lastUpdate.strftime("%Y-%m-%d %H:%M:%S"),
 			tempf = '%.1f' % self.tempf,
+			indoortempf = '%.1f' % self.indoortempf,
 			windspeedmph = self.windCurr.pwsspeed,
 			winddir = self.windCurr.pwsdir,
 			windgustmph = self.gustCurr.pwsspeed,
