@@ -18,7 +18,6 @@ Minor issues
    * ensure correct orientation and level-ness
 * rain/wind data compression:
    * elide points that contain no new data (i.e.: more recent timestamp, same number of ticks and direction)
-* add PWS secrets to secrets file (once I have the account set up)
 
 Wish list
 ---------
