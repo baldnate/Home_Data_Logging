@@ -373,17 +373,18 @@ if __name__ == "__main__":
         if prefill:
             prefill -= 1
             continue
-        if updates % 20 == 0:
-            print "{0:.2f} updates/sec".format(updates / (time - lastUpdateRateTime).total_seconds())
+        if updates % 100 == 0:
+            print "{0:.2f} reports/sec".format(updates / (time - lastUpdateRateTime).total_seconds())
             updates = 0
             lastUpdateRateTime = time
         if (time - lastConsoleTime).total_seconds() >= consoleInterval:
             print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
             # wud.updatePWS(pws)
+        if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
+            print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
             lastConsoleTime = time
         if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
             status = ", ".join([x for x in wud.tweet() if x is not None])
-            print "Tweeting: %s" % status
             retryTime = twitter.tweet(status)
             if retryTime == -1:
                 lastTweetTime = time
