@@ -275,7 +275,7 @@ class WeatherUndergroundData(object):
             retVal.append(None)
         else:
             retVal.append("{0:.2f}\"Hg".format(self.baromin))
-        retVal.append("{0:.0f}°F indoor".format(round(self.indoortempf)))
+        retVal.append("indoor {0:.0f}°F".format(round(self.indoortempf)))
         retVal.append("wCur {0}".format(self.windCurr.tweet()))
         retVal.append("gCur {0}".format(self.gustCurr.tweet()))
         retVal.append("g10m {0}".format(self.windGust10m.tweet()))
