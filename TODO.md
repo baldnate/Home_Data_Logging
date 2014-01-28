@@ -5,9 +5,10 @@ Big issues
 ----------
 
 * Outside temp is screwy.  I suspect that hot air is coming out of the gable vent into the enclosure.
-	* see http://www.youtube.com/watch?v=KOBt7sxtx0Y for a good shield design
-	* add external probe if needed
-* Also, the temp sensors were already 2 degrees apart.
+	* siting guide: http://wiki.wunderground.com/index.php/PWS_-_Siting
+	* see http://www.youtube.com/watch?v=KOBt7sxtx0Y for a diy shield design
+	* Also note: the humidity and pressure temp sensors were already ~2 degF apart.
+	* add external temp probe if needed
 * Add all the sensors to wx.ino's output, even if they seem useless or low quality.
 	* retrofit ear.ino once wx node is updated with new data
 * I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
