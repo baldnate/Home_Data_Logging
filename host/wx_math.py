@@ -6,6 +6,7 @@
 
 import math
 
+
 def fuzzyEqual(a, b):
     """
     Fuzzy equality for floats.
@@ -16,7 +17,8 @@ def fuzzyEqual(a, b):
     >>> fuzzyEqual(2, 2.5)
     False
     """
-    return abs(a-b) < .01
+    return abs(a - b) < .01
+
 
 def fixBogusTempReading(bogusF):
     """
@@ -30,6 +32,7 @@ def fixBogusTempReading(bogusF):
         return cToF(-1 * (128 - (fToC(bogusF) % 128)))
     else:
         return bogusF
+
 
 def cToF(degC):
     """
