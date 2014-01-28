@@ -194,8 +194,9 @@ unsigned long lastSecond;  // The millis counter to see when a second rolls by
 Simple_MPL3115A2 myPressure;
 HTU21D myHumidity;
 AutoAverager runningPressure;
-AutoAverager runningTemperature;
+AutoAverager runningPressureTemp;
 AutoAverager runningHumidity;
+AutoAverager runningHumidityTemp;
 
 const byte DEBOUNCE_DURATION_IN_MS = 10;
 void debounce(volatile unsigned long &count, volatile unsigned long &lastTime) {
@@ -284,6 +285,17 @@ unsigned int getWindDirection() {
   return (-1); // error, disconnected?
 }
 
+// Returns the voltage of the light sensor based on the 3.3V rail
+// This allows us to ignore what VCC might be (an Arduino plugged into USB has VCC of 4.5 to 5.2V)
+float getLightLevel()
+{
+  float operatingVoltage = analogRead(REF_3V3);
+  float lightSensor = analogRead(LIGHT);
+  operatingVoltage = 3.3 / operatingVoltage; // The reference voltage is 3.3V
+  lightSensor = operatingVoltage * lightSensor;
+  return lightSensor;
+}
+
 float cToF(float c) {
   return (c * 9.0)/ 5.0 + 32.0;
 }
@@ -301,43 +313,58 @@ bool observeConditions(uint8_t msg[24]) {
         rainticks(uint): Running count of rain cup tips.
         humidity(float) : Percent humidity.
         pressure(float): Pressure in Pascals.
-        tempf(float) : Temperature in degF.
+        pTempf(float) : Temperature in degF, as read from pressure sensor.
         windticks(ulong): Running count of wind ticks.
         winddir(float): Wind direction in degrees azimuth.
+        hTempf(float) : Temperature in degF, as read from humidity sensor.
+        light(float) : Light level.
 
-      Total packet size: 24 bytes */
+      Total packet size: 32 bytes */
 
   // Just blue on == measurements being collected
   digitalWrite(LED_BLUE, HIGH);
 
-  float tempC    = -999.0;
-  float tempF    = -999.0;
-  float pressure = -999.0;
-  float humidity = myHumidity.readHumidity();
+  float humidity  = myHumidity.readHumidity();
   if (isHumidityBogus(humidity)) {
     runningHumidity.clear();
     return false;
   } else {
     humidity = runningHumidity.latch(humidity);
   }
-  if (myPressure.readTempAndPressure(tempC, pressure)) {
+
+  float hTempF = myHumidity.readTemperature();
+  if (isHumidityBogus(hTempF)) {
+    runningHumidityTemp.clear();
+    return false;
+  } else {
+    hTempF = runningHumidityTemp.latch(hTempF);
+  }
+
+  float pTempC    = -999.0;
+  float pTempF    = -999.0;
+  float pressure  = -999.0;
+  if (myPressure.readTempAndPressure(pTempC, pressure)) {
     pressure = runningPressure.latch(pressure);
-    tempF = runningTemperature.latch(cToF(tempC));
+    pTempF = runningPressureTemp.latch(cToF(pTempC));
   } else {
     myPressure.init();
-    runningTemperature.clear();
+    runningPressureTemp.clear();
     runningPressure.clear();
     return false;
   }
+
+  float lightLevel = getLightLevel();
 
   msg[0] = 0xCC;
   msg[1] = 0x01;
   *(unsigned int*) (msg +  2) = rainClicks;
   *(float*)(msg +  4) = humidity;
   *(float*)(msg +  8) = pressure;
-  *(float*)(msg + 12) = tempF;
+  *(float*)(msg + 12) = pTempF;
   *(unsigned long*)(msg + 16) = windClicks;
   *(float*)(msg + 20) = getWindDirection() * 1.0;
+  *(float*)(msg + 24) = hTempF;
+  *(float*)(msg + 28) = lightLevel;
   
   digitalWrite(LED_BLUE, LOW);
 

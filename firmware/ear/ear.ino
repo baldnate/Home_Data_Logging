@@ -48,8 +48,7 @@ void loop()
 
   if (vw_get_message(msg, &msglen)) // Non-blocking
   {
-    /*
-      wx.ino message format
+  /*  Message format as follows.
       Header: 
         magic(byte): 0xCC
         sender(byte): 0x01 (for the wx node)
@@ -57,12 +56,14 @@ void loop()
         rainticks(uint): Running count of rain cup tips.
         humidity(float) : Percent humidity.
         pressure(float): Pressure in Pascals.
-        tempf(float) : Temperature in degF.
-        windspeed(float): Wind speed in MPH.
+        pTempf(float) : Temperature in degF, as read from pressure sensor.
+        windticks(ulong): Running count of wind ticks.
         winddir(float): Wind direction in degrees azimuth.
+        hTempf(float) : Temperature in degF, as read from humidity sensor.
+        light(float) : Light level.
 
-      Total packet size: 24 bytes
-    */
+      Total packet size: 32 bytes */
+
 
     if (msg[0] == 0xcc && msg[1] == 0x01)
     {
@@ -73,12 +74,16 @@ void loop()
       Serial.print(*(float*)(msg +  4));
       Serial.print(", \"pressure\": ");
       Serial.print(*(float*)(msg +  8));
-      Serial.print(", \"tempf\": ");
+      Serial.print(", \"pTempf\": ");
       Serial.print(*(float*)(msg + 12));
       Serial.print(", \"windticks\": ");
       Serial.print(*(unsigned long*)(msg + 16));
       Serial.print(", \"winddir\": ");
       Serial.print(*(float*)(msg + 20));
+      Serial.print(", \"hTempf\": ");
+      Serial.print(*(float*)(msg + 24));
+      Serial.print(", \"light\": ");
+      Serial.print(*(float*)(msg + 28));
       Serial.print(", \"indoortempf\": ");
       Serial.print(getTempF());
       Serial.println("}");
