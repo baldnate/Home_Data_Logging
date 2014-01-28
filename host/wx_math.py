@@ -27,6 +27,8 @@ def fixBogusTempReading(bogusF):
     True
     >>> fuzzyEqual(fixBogusTempReading(490.1), 29.3)
     True
+    >>> fuzzyEqual(fixBogusTempReading(492.62), 31.82)
+    True
     >>> fixBogusTempReading(0)
     0
     """
