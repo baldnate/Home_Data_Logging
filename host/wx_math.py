@@ -152,16 +152,6 @@ def degreesToCompass(d):
     return directions[int(d / 45)]
 
 
-def degreesToArrow(d):
-    """
-    Takes degrees, returns unicode arrow for that compass direction.
-    """
-    directions = "↑ ↗ → ↘ ↓ ↙ ← ↖".split()
-    directions *= 2  # no need for modulo later
-    d = (d % 360) + 360 / 16
-    return directions[int(d / 45)]
-
-
 if __name__ == "__main__":
     import doctest
     doctest.testmod()
