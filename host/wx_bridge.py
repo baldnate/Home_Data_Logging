@@ -166,13 +166,10 @@ class WindData(object):
 
 class WeatherUndergroundData(object):
 
-    def __init__(self, currInterval, tweetInterval):
-        self.currInterval = currInterval
-        self.maxInterval = max(currInterval, tweetInterval, 120, 600)
-        if tweetInterval:
-            self.tweetInterval = tweetInterval
-        else:
-            self.tweetInterval = self.maxInterval
+    def __init__(self, pwsInterval, tweetInterval):
+        self.maxInterval = max(pwsInterval, tweetInterval, 120, 600)
+        self.tweetInterval = tweetInterval if tweetInterval else self.maxInterval
+        self.currInterval = pwsInterval if pwsInterval else self.maxInterval
         self.windData = WindData()       # raw wind samples
         self.windCurr = WindSpeed()      # instant velocity (wunderground winddir & windspeedmph)
         self.gustCurr = WindSpeed()      # 30 sec gust (wunderground windgustmph & windgustdir)
@@ -342,10 +339,12 @@ if __name__ == "__main__":
 
     tweetInterval = prefs[reportKey]["tweet"]
     consoleInterval = prefs[reportKey]["console"]
+    pwsInterval = prefs[reportKey]["pws"]
     prefill = prefs[reportKey]["prefill"]
-    wud = WeatherUndergroundData(prefs[reportKey]["curr"], tweetInterval)
+    pws = prefs[reportKey]["pws"]
+    wud = WeatherUndergroundData(pwsInterval, tweetInterval)
 
-    lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1)  # one day ago, to trigger an immediate update
+    lastPWSTime = lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1)  # one day ago, to trigger an immediate update
     lastUpdateRateTime = datetime.datetime.utcnow()
     tweetRetryDelay = 0
     lastTweetText = ""
@@ -353,7 +352,7 @@ if __name__ == "__main__":
     secrets = json.load(open('secrets.json'))
 
     twitter = EZTweet(secrets['APP_KEY'], secrets['APP_SECRET'], secrets['OAUTH_TOKEN'], secrets['OAUTH_TOKEN_SECRET'])
-    pws = WundergroundPWS(secrets['PWS_ID'], secrets['PWS_PASSWORD'])
+    pws = WundergroundPWS(secrets['PWS_ID'], secrets['PWS_PASSWORD'], rtfreq=pwsInterval)
 
     print "wx_bridge initialized and listening to {0}".format(serialPort)
     if debugMode:
@@ -377,9 +376,9 @@ if __name__ == "__main__":
             print "{0:.2f} reports/sec".format(updates / (time - lastUpdateRateTime).total_seconds())
             updates = 0
             lastUpdateRateTime = time
-        if (time - lastConsoleTime).total_seconds() >= consoleInterval:
-            print "\t".join([(x if x is not None else "XXXXX") for x in wud.console()])
-            # wud.updatePWS(pws)
+        if pwsInterval and (time - lastPWSTime).total_seconds() >= pwsInterval:
+            wud.updatePWS(pws)
+            lastPWSTime = time
         if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
             print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
             lastConsoleTime = time
