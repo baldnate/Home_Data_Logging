@@ -180,12 +180,12 @@ class WeatherUndergroundData(object):
         self.windGust10m = WindSpeed()   # 10 min gust (wunderground windgustmph_10m & windgustdir_10m)
         self.windGustTweet = WindSpeed()  # tweet interval gust (baldwx)
         self.humidity = 0              # humidity in percent
-        self.tempf = 0				   # outdoor temp in degF
-        self.rainin = 0      		   # accumulated rainfall in the last 60 min
+        self.tempf = 0                 # outdoor temp in degF
+        self.rainin = 0                # accumulated rainfall in the last 60 min
         self.dailyrainin = 0           # rain inches so far today (local time)
         self.baromin = 0               # barometric pressure inches (altimeter setting)
         self.indoortempf = 0           # indoor temp in degF
-        self.dewpointf = 0 			   # dewpoint in degF
+        self.dewpointf = 0             # dewpoint in degF
         self.heatindexf = 0
         self.windchillf = 0
 
