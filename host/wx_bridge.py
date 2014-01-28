@@ -50,6 +50,10 @@ def timeWindow(samples, time):
         return retVal
 
 
+def formatTemp(tempF, tag=""):
+    return "%s %.1f°F" % (tag, tempF)
+
+
 def tickDelta(tickbig, ticksmall, maxticks):
     if tickbig >= ticksmall:
         return tickbig - ticksmall
@@ -243,7 +247,7 @@ class WeatherUndergroundData(object):
     def pushObservation(self, observation):
         self.pushWind(observation)
         self.humidity = observation["humidity"]
-        self.tempf = observation["tempf"]
+        self.tempf = wx_math.fixBogusTempReading(observation["tempf"])
         self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
         self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
         self.windchillf = wx_math.windChill(self.tempf, self.windAvg2m.speed)
@@ -257,22 +261,22 @@ class WeatherUndergroundData(object):
         if self.windchillf is not None:
             wc = round(self.windchillf)
             if wc < round(self.tempf) - 1:
-                return "wind chill {0:.0f}°F".format(wc)
-        else:
+                return formatTemp(wc, "wind chill")
+        elif self.heatindexf is not None:
             hi = round(self.heatindexf)
             if hi > round(self.tempf) + 1:
-                return "heat index {0:.0f}°F".format(hi)
+                return formatTemp(hi, "heat index")
         return None
 
     def console(self):
         retVal = self.tweet()
         retVal.append("{0:.0f}% RH".format(round(self.humidity)))
-        retVal.append("{0:.0f}°F DP".format(round(self.dewpointf)))
+        retVal.append(formatTemp(self.dewpointf, "DP"))
         if self.baromin is None:
             retVal.append(None)
         else:
             retVal.append("{0:.2f}\"Hg".format(self.baromin))
-        retVal.append("indoor {0:.0f}°F".format(round(self.indoortempf)))
+        retVal.append(formatTemp(self.indoortempf, "indoor"))
         retVal.append("wCur {0}".format(self.windCurr.tweet()))
         retVal.append("gCur {0}".format(self.gustCurr.tweet()))
         retVal.append("g10m {0}".format(self.windGust10m.tweet()))
@@ -296,7 +300,7 @@ class WeatherUndergroundData(object):
 
     def tweet(self):
         retVal = []
-        retVal.append("{0:.0f}°F".format(round(self.tempf)))
+        retVal.append(formatTemp(self.tempf))
         retVal.append(self.formatApparentTemperature())
         retVal.append(self.formatWindGust())
         retVal.append(self.formatRain("hour", self.rainin))
