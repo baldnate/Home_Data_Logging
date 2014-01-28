@@ -43,10 +43,7 @@ def timeWindow(samples, time):
     if i >= len(samples):
         return samples
     else:
-        nextLastSample = copy(samples[i])
-        nextLastSample.time = now - datetime.timedelta(seconds=time)
         retVal = samples[0:i - 1]
-        retVal.append(nextLastSample)
         return retVal
 
 
