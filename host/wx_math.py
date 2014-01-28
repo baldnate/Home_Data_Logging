@@ -6,6 +6,30 @@
 
 import math
 
+def fuzzyEqual(a, b):
+    """
+    Fuzzy equality for floats.
+    >>> fuzzyEqual(0, 0)
+    True
+    >>> fuzzyEqual(2, 2.001)
+    True
+    >>> fuzzyEqual(2, 2.5)
+    False
+    """
+    return abs(a-b) < .01
+
+def fixBogusTempReading(bogusF):
+    """
+    Fix for a two's complement error on the weather station firmware.
+    >>> fuzzyEqual(fixBogusTempReading(491.23), 30.43)
+    True
+    >>> fixBogusTempReading(0)
+    0
+    """
+    if bogusF > 250:
+        return cToF(-1 * (128 - (fToC(bogusF) % 128)))
+    else:
+        return bogusF
 
 def cToF(degC):
     """
