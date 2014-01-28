@@ -25,6 +25,8 @@ def fixBogusTempReading(bogusF):
     Fix for a two's complement error on the weather station firmware.
     >>> fuzzyEqual(fixBogusTempReading(491.23), 30.43)
     True
+    >>> fuzzyEqual(fixBogusTempReading(490.1), 29.3)
+    True
     >>> fixBogusTempReading(0)
     0
     """
