@@ -14,7 +14,7 @@
 # * stdout
 
 import serial
-import json
+import simplejson as json
 import datetime
 import math
 import wx_math
@@ -304,6 +304,13 @@ class WeatherUndergroundData(object):
         retVal.append(self.formatRain("today", self.dailyrainin))
         return retVal
 
+
+def getChunk(ser):
+    while True:
+        line = "".join(ser.readline().split(chr(0)))
+        yield line
+
+
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description='wx_bridge')
@@ -359,13 +366,20 @@ if __name__ == "__main__":
     if debugMode:
         print "debugging mode ON"
 
-    while True:
-        line = ser.readline()
+    for line in getChunk(ser):
         time = datetime.datetime.utcnow()
         try:
             data = json.loads(line)
         except ValueError as e:
-            print "Malformed packet received, ignoring."
+            print "Ignoring malformed packet:"
+            print line
+            print "Raw dump:"
+            ords = []
+            for x in line:
+                ords.append(str(ord(x)))
+            print ",".join(ords)
+            print "Exception:"
+            print e
             continue
         data['timestamp'] = time
         wud.pushObservation(data)
