@@ -4,7 +4,7 @@
 # based of info from
 # http://wiki.wunderground.com/index.php/PWS_-_Upload_Protocol
 
-import urllib
+import requests
 
 
 class WundergroundPWS(object):
@@ -27,21 +27,24 @@ class WundergroundPWS(object):
             self.stock['rtfreq'] = rtfreq
 
     def update(self, **kwargs):
-        obs = dict((k, v) for k, v in kwargs.iteritems() if v is not None)
-        args = dict(obs.items() + self.stock.items() + self.secrets.items())
-        params = urllib.urlencode(args)
+        args = dict(kwargs.items() + self.stock.items() + self.secrets.items())
         bld = ""
         if self.realtime:
             bld = 'rtupdate'
         else:
             bld = 'weatherstation'
-        f = urllib.urlopen(
-            "http://%s.wunderground.com/weatherstation/updateweatherstation.php?%s" % (bld, params))
-        result = f.read()
-        if 'success' in result:
+        try:
+            r = requests.get("http://%s.wunderground.com/weatherstation/updateweatherstation.php" % bld, params=args)
+        except requests.exceptions.ConnectionError as e:
             return
+        if 'success' in r.text:
+            return
+        elif '502' in r.text:
+        	return
+        elif '408' in r.text:
+        	return
         else:
-            raise Exception(result)
+            raise Exception(r.text)
 
 if __name__ == "__main__":
     import doctest
