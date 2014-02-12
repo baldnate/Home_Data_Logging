@@ -2,7 +2,7 @@
 #
 # When you just want to update twitter status and nothing else, ez_tweet is there.
 
-from twython import Twython, TwythonError, TwythonAuthError
+from twython import Twython, TwythonError, TwythonAuthError, TwythonStreamError, TwythonRateLimitError
 
 
 class EZTweet(object):
@@ -20,12 +20,14 @@ class EZTweet(object):
         """
         if e is TwythonAuthError:
             raise e
-        if e is TwythonStreamError:
+        elif e is TwythonStreamError:
             raise e
-        if e is TwythonRateLimitError:
+        elif e is TwythonRateLimitError:
             return e.retry_after
-        if e.error_code in [502, 503, 504]:
-            return 60
+        elif e.error_code in [502, 503, 504]:
+            return 1 * 60
+        elif e.error_code in [403]:
+            return 5 * 60
         else:
             raise e
 
@@ -34,14 +36,15 @@ class EZTweet(object):
         Returns number of seconds to wait until next tweet.
         Raises if a non-retryable offense occurs.
         """
+        retVal = -1
         if status == self.lastTweet:
             return 0
         try:
             self.twitter.update_status(status=status)
         except TwythonError as e:
-            return self.__what_to_do__(e)
+            retVal = self.__what_to_do__(e)
         self.lastTweet = status
-        return -1
+        return retVal
 
 if __name__ == "__main__":
     import doctest
