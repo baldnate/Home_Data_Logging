@@ -39,6 +39,8 @@ void setup()
   vw_setup(2000);	           // Bits per sec
   vw_set_rx_pin(2);
   vw_rx_start();             // Start the receiver PLL running
+
+  Serial.print("ear.ino active");
 }
 
 void loop()
