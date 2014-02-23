@@ -306,7 +306,7 @@ bool isHumidityBogus(float x) {
   return x == 998.0 || x == 999.0;
 }
 
-bool observeConditions(uint8_t msg[24]) {
+bool observeConditions(uint8_t msg[32]) {
   /*  Message format as follows.
       Header: 
         magic(byte): 0xCC
@@ -334,7 +334,8 @@ bool observeConditions(uint8_t msg[24]) {
     humidity = runningHumidity.latch(humidity);
   }
 
-  float hTempF = myHumidity.readTemperature();
+  float hTempC = myHumidity.readTemperature();
+  float hTempF = cToF(hTempC);
   if (isHumidityBogus(hTempF)) {
     runningHumidityTemp.clear();
     return false;
@@ -374,7 +375,7 @@ bool observeConditions(uint8_t msg[24]) {
 }
 
 void sendObservations() {
-  const byte msgLength = 24;
+  const byte msgLength = 32;
   uint8_t msg[msgLength];
 
   if (observeConditions(msg)) {
