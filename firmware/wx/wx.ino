@@ -218,13 +218,15 @@ void wspeedIRQ() {
 }
 
 void setup() {
-  delay(2000); // Wait for a bit before proceeding...
+  delay(1000); // Wait for a bit before proceeding...
 
   pinMode(LED_BLUE, OUTPUT);
   pinMode(LED_GREEN, OUTPUT);
 
   digitalWrite(LED_BLUE, HIGH);   // Both LEDs on == init in progress
   digitalWrite(LED_GREEN, HIGH);
+
+  delay(200); // Leave the LEDs on for at least a bit...
 
   Wire.begin();
   myHumidity.begin();
