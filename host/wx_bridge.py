@@ -244,7 +244,9 @@ class WeatherUndergroundData(object):
     def pushObservation(self, observation):
         self.pushWind(observation)
         self.humidity = observation["humidity"]
-        self.tempf = wx_math.fixBogusTempReading(observation["tempf"])
+        self.ptempf = wx_math.fixBogusTempReading(observation["pTempf"])
+        self.htempf = wx_math.fixBogusTempReading(observation["hTempf"])
+        self.tempf = (self.ptempf + self.htempf) / 2.0
         self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
         self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
         self.windchillf = wx_math.windChill(self.tempf, self.windAvg2m.speed)
