@@ -399,7 +399,7 @@ if __name__ == "__main__":
         if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
             print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
             lastConsoleTime = time
-        if tweetInterval and (time - lastTweetTime).total_seconds() >= tweetInterval + tweetRetryDelay:
+        if tweetInterval and ((time - lastTweetTime).total_seconds() >= (tweetInterval + tweetRetryDelay)):
             status = ", ".join([x for x in wud.tweet() if x is not None])
             retryTime = twitter.tweet(status)
             if retryTime == -1:
