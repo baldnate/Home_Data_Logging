@@ -13,6 +13,9 @@ class WundergroundPWS(object):
 
     def __init__(self, account, password, rtfreq=False):
         super(WundergroundPWS, self).__init__()
+        self.WARNING_RESULTS = ("INVALIDPASSWORDID")
+        self.SUCCESS_RESULTS = ('success', '502', '408')
+
         self.secrets = {
             'ID': account,
             'PASSWORD': password
@@ -37,14 +40,14 @@ class WundergroundPWS(object):
             r = requests.get("http://%s.wunderground.com/weatherstation/updateweatherstation.php" % bld, params=args)
         except requests.exceptions.ConnectionError as e:
             return
-        if 'success' in r.text:
-            return
-        elif '502' in r.text:
-        	return
-        elif '408' in r.text:
-        	return
-        else:
-            raise Exception(r.text)
+        for s in self.SUCCESS_RESULTS:
+            if s in r.text:
+                return
+        for s in self.WARNING_RESULTS:
+            if s in r.text:
+                print "WARNING: %s" % r.text
+                return
+        raise Exception(r.text)
 
 if __name__ == "__main__":
     import doctest
