@@ -38,7 +38,10 @@ class EZTweet(object):
         """
         retVal = -1
         if status == self.lastTweet:
-            return 0
+            # Errors get returned for posting the same status
+            # in succession.  Don't tweet, and request tweet
+            # retry back-off of 60 seconds.
+            return 60
         try:
             self.twitter.update_status(status=status)
         except TwythonError as e:
