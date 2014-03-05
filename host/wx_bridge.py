@@ -196,18 +196,18 @@ class WeatherUndergroundData(object):
             indoortempf='%.1f' % self.indoortempf,
             windspeedmph=self.windCurr.pwsspeed,
             winddir=self.windCurr.pwsdir,
-            windgustmph=self.gustCurr.pwsspeed,
-            windgustdir=self.gustCurr.pwsdir,
             windspdmph_avg2m=self.windAvg2m.pwsspeed,
             winddir_avg2m=self.windAvg2m.pwsdir,
-            windgustmph_10m=self.windGust10m.pwsspeed,
-            windgustdir_10m=self.windGust10m.pwsdir,
             humidity=int(round(self.humidity)),
             dewptf='%.1f' % self.dewpointf,
             rainin='%.3f' % self.rainin,
             dailyrainin='%.3f' % self.dailyrainin,
             baromin='%.2f' % self.baromin
         )
+            # windgustmph=self.gustCurr.pwsspeed,
+            # windgustdir=self.gustCurr.pwsdir,
+            # windgustmph_10m=self.windGust10m.pwsspeed,
+            # windgustdir_10m=self.windGust10m.pwsdir,
 
     def pushRain(self, observation):
         now = observation["timestamp"]
@@ -283,7 +283,7 @@ class WeatherUndergroundData(object):
 
     def formatWindGust(self):
         wind = self.windAvg2m
-        gust = self.windGustTweet
+        gust = WindSpeed() # self.windGustTweet
         if wind.isCalm() and gust.speed < 5:
             return "calm"
         else:
