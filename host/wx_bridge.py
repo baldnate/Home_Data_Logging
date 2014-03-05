@@ -354,8 +354,8 @@ if __name__ == "__main__":
     pws = prefs[reportKey]["pws"]
     wud = WeatherUndergroundData(pwsInterval, tweetInterval)
 
-    lastPWSTime = lastTweetTime = lastConsoleTime = datetime.datetime.utcnow() - datetime.timedelta(1)  # one day ago, to trigger an immediate update
-    lastUpdateRateTime = datetime.datetime.utcnow()
+    # assume the worst: that we just updated before this script ran
+    lastPWSTime = lastTweetTime = lastConsoleTime = lastUpdateRateTime = datetime.datetime.utcnow()
     tweetRetryDelay = 0
     lastTweetText = ""
     updates = 0
