@@ -383,28 +383,34 @@ if __name__ == "__main__":
             print "Exception:"
             print e
             continue
-        data['timestamp'] = time
-        wud.pushObservation(data)
-        updates = updates + 1
-        if prefill:
-            prefill -= 1
-            continue
-        if updates % 100 == 0:
-            print "{0:.2f} reports/sec".format(updates / (time - lastUpdateRateTime).total_seconds())
-            updates = 0
-            lastUpdateRateTime = time
-        if pwsInterval and (time - lastPWSTime).total_seconds() >= pwsInterval:
-            wud.updatePWS(pws)
-            lastPWSTime = time
-        if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
-            print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
-            lastConsoleTime = time
-        if tweetInterval and ((time - lastTweetTime).total_seconds() >= (tweetInterval + tweetRetryDelay)):
-            status = ", ".join([x for x in wud.tweet() if x is not None])
-            retryTime = twitter.tweet(status)
-            if retryTime == -1:
-                lastTweetTime = time
-                tweetRetryDelay = 0
-            else:
-                print "Tweet failed.  Next attempt in %i seconds" % retryTime
-                tweetRetryDelay += retryTime
+        try:
+            data['timestamp'] = time
+            wud.pushObservation(data)
+            updates = updates + 1
+            if prefill:
+                prefill -= 1
+                continue
+            if updates % 100 == 0:
+                print "{0:.2f} reports/sec".format(updates / (time - lastUpdateRateTime).total_seconds())
+                updates = 0
+                lastUpdateRateTime = time
+            if pwsInterval and (time - lastPWSTime).total_seconds() >= pwsInterval:
+                wud.updatePWS(pws)
+                lastPWSTime = time
+            if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
+                print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
+                lastConsoleTime = time
+            if tweetInterval and ((time - lastTweetTime).total_seconds() >= (tweetInterval + tweetRetryDelay)):
+                status = ", ".join([x for x in wud.tweet() if x is not None])
+                retryTime = twitter.tweet(status)
+                if retryTime == -1:
+                    lastTweetTime = time
+                    tweetRetryDelay = 0
+                else:
+                    print "Tweet failed.  Next attempt in %i seconds" % retryTime
+                    tweetRetryDelay += retryTime
+        except Exception as e:
+            print "Unexpected exception caught!"
+            print "Line being processed:\n{0}\n".format(line)
+            print "Exception details:"
+            print e
