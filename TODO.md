@@ -4,12 +4,11 @@ TODOS
 Big issues
 ----------
 
-* Outside temp is screwy.  I suspect that hot air is coming out of the gable vent into the enclosure.
+* Outside temp is *still* screwy.  Either heat coming off the roof is getting into the enclosure, or the solar shield is not doing its job.  I'm considering resiting the entire project to somewhere that isn't the roof.
 	* siting guide: http://wiki.wunderground.com/index.php/PWS_-_Siting
 	* see http://www.youtube.com/watch?v=KOBt7sxtx0Y for a diy shield design
 	* Also note: the humidity and pressure temp sensors were already ~2 degF apart.
-	* add external temp probe if needed
-* I suspect that the barometer readings aren't being oversampled.  I need to compare this versus the stock firmware.
+* Something is wrong with the serial link.  I am now suspecting that software flow control is needed.  The symptoms are lots of truncated packets (caught by json parser yacking) and a few garbled packets (caught by main code not finding the right keys in the packet).
 
 Minor issues
 ------------
