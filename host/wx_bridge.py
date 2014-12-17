@@ -333,7 +333,7 @@ if __name__ == "__main__":
     connected = False
     for serialPort in prefs["SERIAL_PORTS"]:
         try:
-            ser = serial.Serial(serialPort, 115200)
+            ser = serial.Serial(serialPort, 9600)
             connected = True
             break
         except:

@@ -9,7 +9,7 @@ prefs = json.load(open('prefs.json'))
 connected = False
 for serialPort in prefs["SERIAL_PORTS"]:
     try:
-        ser = serial.Serial(serialPort, 115200)
+        ser = serial.Serial(serialPort, 9600)
         connected = True
         break
     except:
