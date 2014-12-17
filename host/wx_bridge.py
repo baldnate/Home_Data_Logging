@@ -177,6 +177,7 @@ class WeatherUndergroundData(object):
         self.windAvg2m = WindSpeed()     # 2 min avg (wunderground windspdmph_avg2m & winddir_avg2m)
         self.windGust10m = WindSpeed()   # 10 min gust (wunderground windgustmph_10m & windgustdir_10m)
         self.windGustTweet = WindSpeed()  # tweet interval gust (baldwx)
+        self.rainData = RainData()
         self.humidity = 0              # humidity in percent
         self.tempf = 0                 # outdoor temp in degF
         self.rainin = 0                # accumulated rainfall in the last 60 min
@@ -285,7 +286,7 @@ class WeatherUndergroundData(object):
 
     def formatWindGust(self):
         wind = self.windAvg2m
-        gust = WindSpeed() # self.windGustTweet
+        gust = self.windGustTweet
         if wind.isCalm() and gust.speed < 5:
             return "calm"
         else:
