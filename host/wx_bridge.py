@@ -21,7 +21,8 @@ import wx_math
 from ez_tweet import EZTweet
 from wx_pws import WundergroundPWS
 from copy import copy
-
+import pytz
+from tzlocal import get_localzone
 
 def timeWindow(samples, time):
     """
@@ -211,11 +212,12 @@ class WeatherUndergroundData(object):
             # windgustdir_10m=self.windGust10m.pwsdir,
 
     def pushRain(self, observation):
+        datetime.datetime.utcnow()
         now = observation["timestamp"]
         self.rainData.push(RawRainSample(observation["rainticks"], now))
 
-        localnow = now.replace(tzinfo=timezone.utc).astimezone(tz=None)
-        localmidnight = datetime.combine(localnow.date(), time(0))
+        localnow = now.replace(tzinfo=pytz.utc).astimezone(get_localzone())
+        localmidnight = datetime.datetime(localnow.year, localnow.month, localnow.day, 0, 0, 0, 0, get_localzone())
         delta = localnow - localmidnight
 
         data1h = self.rainData.timeWindow(60 * 60)
