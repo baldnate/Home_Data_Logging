@@ -242,18 +242,20 @@ class WeatherUndergroundData(object):
         self.windData = self.windData.timeWindow(self.maxInterval)  # discard data older than we care about
 
     def pushObservation(self, observation):
-        self.pushWind(observation)
-        self.humidity = observation["humidity"]
-        self.ptempf = wx_math.fixBogusTempReading(observation["pTempf"])
-        self.htempf = wx_math.fixBogusTempReading(observation["hTempf"])
-        self.tempf = (self.ptempf + self.htempf) / 2.0
-        self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
-        self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
-        self.windchillf = wx_math.windChill(self.tempf, self.windAvg2m.speed)
-        self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
-        if self.baromin is None:
-            print "Bogus pressure encountered!  pascals:{0}, alt:{1}".format(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
-        self.indoortempf = observation["indoortempf"]
+        if observation["name"] == "windrain":
+            self.pushWind(observation)
+            self.pushRain(observation)
+        if observation["name"] == "temp":
+            self.humidity = observation["humidity"]
+            self.ptempf = wx_math.fixBogusTempReading(observation["pTempf"])
+            self.htempf = wx_math.fixBogusTempReading(observation["hTempf"])
+            self.tempf = (self.ptempf + self.htempf) / 2.0
+            self.dewpointf = wx_math.dewpoint(self.tempf, self.humidity)
+            self.heatindexf = wx_math.temperatureHumidityIndex(self.tempf, self.humidity)
+            self.windchillf = wx_math.windChill(self.tempf, self.windAvg2m.speed)
+            self.baromin = wx_math.pascalsToAltSettingInHg(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
+            if self.baromin is None:
+                print "Bogus pressure encountered!  pascals:{0}, alt:{1}".format(observation["pressure"], prefs["WX_ALTITUDE_IN_METERS"])
         self.lastUpdate = observation["timestamp"]
 
     def formatApparentTemperature(self):
