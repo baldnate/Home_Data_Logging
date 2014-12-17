@@ -304,8 +304,9 @@ class WeatherUndergroundData(object):
 
     def tweet(self):
         retVal = []
-        retVal.append(formatTemp(self.tempf))
-        retVal.append(self.formatApparentTemperature())
+        if self.tempf:
+            retVal.append(formatTemp(self.tempf)) 
+            retVal.append(self.formatApparentTemperature())
         retVal.append(self.formatWindGust())
         retVal.append(self.formatRain("hour", self.rainin))
         retVal.append(self.formatRain("today", self.dailyrainin))
@@ -403,7 +404,8 @@ if __name__ == "__main__":
                 wud.updatePWS(pws)
                 lastPWSTime = time
             if consoleInterval and (time - lastConsoleTime).total_seconds() >= consoleInterval:
-                print " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
+                print "tweet: " + ", ".join([x for x in wud.tweet() if x is not None])
+                print "console: " + " ".join([(x if x is not None else "XXXXX") for x in wud.console()])
                 lastConsoleTime = time
             if tweetInterval and ((time - lastTweetTime).total_seconds() >= (tweetInterval + tweetRetryDelay)):
                 status = ", ".join([x for x in wud.tweet() if x is not None])
