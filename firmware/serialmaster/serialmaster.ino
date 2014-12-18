@@ -80,20 +80,25 @@ void processTempNode(uint8_t readBuffer[READ_BUFFER_SIZE])
   if (msg != NULL) {
     uint8_t offset = 0;
     float humidity, pressure, pTempF, hTempF;
+    uint8_t checkSum;
     unpack(msg, &humidity, &offset);
     unpack(msg, &pressure, &offset);
     unpack(msg, &pTempF, &offset);
     unpack(msg, &hTempF, &offset);
-    Serial.print("{\"name\": \"temp\", ");
-    Serial.print(", \"humidity\": ");
-    Serial.print(humidity);
-    Serial.print(", \"pressure\": ");
-    Serial.print(pressure);
-    Serial.print(", \"pTempf\": ");
-    Serial.print(pressure);
-    Serial.print(", \"hTempf\": ");
-    Serial.print(hTempF);
-    Serial.println("}");
+    unpack(msg, &checkSum, &offset);
+
+    if (calculateCheckSum(msg, offset) == checkSum) {
+      Serial.print("{\"name\": \"temp\"");
+      Serial.print(", \"humidity\": ");
+      Serial.print(humidity);
+      Serial.print(", \"pressure\": ");
+      Serial.print(pressure);
+      Serial.print(", \"pTempf\": ");
+      Serial.print(pTempF);
+      Serial.print(", \"hTempf\": ");
+      Serial.print(hTempF);
+      Serial.println("}");
+    }
   }
 }
 
