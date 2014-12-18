@@ -126,8 +126,8 @@ void processWindRainNode(uint8_t readBuffer[READ_BUFFER_SIZE])
     unpack(msg, &checkSum, &offset);
 
     if (calculateCheckSum(msg, offset) == checkSum) {
-      Serial.print("{\"name\": \"windrain\", ");
-      Serial.print("\"rainticks\": ");
+      Serial.print("{\"name\": \"windrain\"");
+      Serial.print(", \"rainticks\": ");
       Serial.print(rainClicks);
       Serial.print(", \"windticks\": ");
       Serial.print(windClicks);
