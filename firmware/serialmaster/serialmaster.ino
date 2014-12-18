@@ -26,7 +26,7 @@ const byte TEMPNODE_RX  = 4;
 const byte TEMPNODE_TX  = 5;
 
 // Constants
-const unsigned long LISTEN_TIME_IN_MS = 500;
+const unsigned long LISTEN_TIME_IN_MS = 400;
 
 // Globals
 SoftwareSerial tempPort(TEMPNODE_RX, TEMPNODE_TX);
